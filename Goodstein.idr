@@ -1,6 +1,7 @@
 import Data.Nat
 import Data.Fin
 import Control.WellFounded
+import Residual
 
 %default total
 
@@ -42,21 +43,6 @@ mutual
     SameOrderHLT : LT (finToNat c1) (finToNat c2) -> HLT (HA c1 e r1 so1) (HA c2 e r2 so2)
     SmallerOrderHLT : HLT e1 e2 -> HLT (HA c1 e1 r1 so1) (HA c2 e2 r2 so2)
     SmallerTailHLT : HLT r1 r2 -> HLT (HA c e r1 so1) (HA c e r2 so2)
-
-divModFin' : (fuel : Nat) -> (num : Nat) -> (pDenom : Nat) -> (Nat, Fin (S pDenom))
-divModFin' 0 num pDenom = (0, 0)
-divModFin' (S k) num pDenom with (isLTE num pDenom)
-  divModFin' (S k) num pDenom | (Yes prf) = (Z, natToFinLT num)
-  divModFin' (S k) num pDenom | (No contra) =
-    let (q, r) = divModFin' k (minus num (S pDenom)) pDenom
-    in (S q, r)
-
-divModFin : (num : Nat) -> (denom : Nat) -> {auto pos : IsSucc denom} -> (Nat, Fin denom) 
-divModFin num (S denom) = divModFin' num num denom
-
-finToHereditary : Fin n -> Hereditary n
-finToHereditary FZ = HZ
-finToHereditary (FS j) = HA j HZ HZ HZSSmaller
 
 data FCmp : Fin n -> Fin n -> Type where
   NLess : LT (finToNat j) (finToNat k) -> FCmp j k
@@ -122,8 +108,10 @@ decHCmp (HA coef1 exp1 rest1 sml1) (HA coef2 exp2 rest2 sml2) with (decHCmp exp1
 
 natToBaseAcc : {base : Nat} -> (n : Nat) -> (0 acc : Accessible Data.Nat.LT n) -> List (Fin (S (S base)))
 natToBaseAcc 0 acc = []
-natToBaseAcc n@(S k) (Access rec) with (divModFin n (S (S base))) proof prf
-  natToBaseAcc n@(S k) (Access rec) | (q, r) = (natToBaseAcc q (rec q (rewrite sym $ cong fst prf in ?natToBaseQuotientLT))) ++ [r]
+natToBaseAcc n (Access rec) with (getResidual (S (S base)) n)
+  natToBaseAcc ((0 * S (S base)) + finToNat r) (Access rec) | (MkResidual r 0) = [r]
+  natToBaseAcc (((S c) * S (S base)) + finToNat r) (Access rec) | (MkResidual r (S c)) =
+    natToBaseAcc {base} (S c) (rec (S c) ?ltrec) ++ [r]
 
 natToBase : {base : Nat} -> (n : Nat) -> List (Fin (S (S base)))
 natToBase n = natToBaseAcc n (wellFounded n)
