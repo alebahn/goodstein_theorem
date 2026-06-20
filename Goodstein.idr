@@ -124,6 +124,7 @@ hOne = HA 0 HZ HZ HZSSmaller
 
 covering
 natToBase : {base : Nat} -> (n : Nat) -> List (Fin (S (S base)))
+natToBase 0 = []
 natToBase n with (divModFin n (S (S base)))
   natToBase n | (q, r) = (natToBase q) ++ [r]
 
