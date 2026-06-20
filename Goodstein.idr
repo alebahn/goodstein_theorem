@@ -106,12 +106,35 @@ decHCmp (HA coef1 exp1 rest1 sml1) (HA coef2 exp2 rest2 sml2) with (decHCmp exp1
     decHCmp (HA coef1 exp1 rest1 sml1) (HA coef2 exp1 rest2 sml2) | HEq | (NMore gt) = HCMore (SameOrderHLT gt)
   decHCmp (HA coef1 exp1 rest1 sml1) (HA coef2 exp2 rest2 sml2) | (HCMore x) = HCMore (SmallerOrderHLT x)
 
+lteAddLeft : (n, m : Nat) -> LTE n (m + n)
+lteAddLeft n m = rewrite plusCommutative m n in lteAddRight n
+
+lteUnderBase : (c, base, tail : Nat) -> LTE c (base + (c + tail))
+lteUnderBase c base tail =
+  transitive (lteAddLeft c base) (plusLteMonotoneLeft base c (c + tail) (lteAddRight c))
+
+lteMultBase : (c, base : Nat) -> LTE c (c * S (S base))
+lteMultBase 0 base = LTEZero
+lteMultBase (S c) base =
+  LTESucc (rewrite multCommutative c (S (S base)) in
+    lteUnderBase c (S base) (S base * c))
+
+ltMultBase : (c, base : Nat) -> Data.Nat.LT (S c) ((S c) * S (S base))
+ltMultBase c base =
+  LTESucc (LTESucc (rewrite multCommutative c (S (S base)) in
+    lteUnderBase c base (S base * c)))
+
+ltResidualQuotient : (c, base : Nat) -> (r : Fin (S (S base))) ->
+  Data.Nat.LT (S c) (((S c) * S (S base)) + finToNat r)
+ltResidualQuotient c base r =
+  transitive (ltMultBase c base) (lteAddRight ((S c) * S (S base)))
+
 natToBaseAcc : {base : Nat} -> (n : Nat) -> (0 acc : Accessible Data.Nat.LT n) -> List (Fin (S (S base)))
 natToBaseAcc 0 acc = []
 natToBaseAcc n (Access rec) with (getResidual (S (S base)) n)
   natToBaseAcc ((0 * S (S base)) + finToNat r) (Access rec) | (MkResidual r 0) = [r]
   natToBaseAcc (((S c) * S (S base)) + finToNat r) (Access rec) | (MkResidual r (S c)) =
-    natToBaseAcc {base} (S c) (rec (S c) ?ltrec) ++ [r]
+    natToBaseAcc {base} (S c) (rec (S c) (ltResidualQuotient c base r)) ++ [r]
 
 natToBase : {base : Nat} -> (n : Nat) -> List (Fin (S (S base)))
 natToBase n = natToBaseAcc n (wellFounded n)
