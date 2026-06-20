@@ -139,11 +139,20 @@ natToBaseAcc n (Access rec) with (getResidual (S (S base)) n)
 natToBase : {base : Nat} -> (n : Nat) -> List (Fin (S (S base)))
 natToBase n = natToBaseAcc n (wellFounded n)
 
-covering
+baseToHereditaryAcc : {base : Nat} -> (xs : List (Fin (S (S base)))) ->
+  (0 acc : SizeAccessible xs) -> Hereditary (S (S base))
+baseToHereditaryAcc [] acc = HZ
+baseToHereditaryAcc (FZ :: xs) (Access rec) =
+  baseToHereditaryAcc xs (rec xs reflexive)
+baseToHereditaryAcc ((FS x) :: xs) (Access rec) =
+  let expDigits = natToBase (S (length xs)) in
+    HA x
+      (baseToHereditaryAcc expDigits (rec expDigits ?baseToHereditaryExpSmaller))
+      (baseToHereditaryAcc xs (rec xs reflexive))
+      ?HA_arg_3
+
 baseToHereditary : {base : Nat} -> List (Fin (S (S base))) -> Hereditary (S (S base))
-baseToHereditary [] = HZ
-baseToHereditary (FZ :: xs) = baseToHereditary xs
-baseToHereditary ((FS x) :: xs) = HA x (baseToHereditary (natToBase (S (length xs)))) (baseToHereditary xs) ?HA_arg_3
+baseToHereditary xs = baseToHereditaryAcc xs (sizeAccessible xs)
 
 covering
 natToHereditary : {ord : Nat} -> (n : Nat) -> Hereditary (S (S ord))
