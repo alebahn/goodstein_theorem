@@ -1,3 +1,6 @@
 package goodstein
 version = 0.0.1
+
+modules = Residual
+
 main = Goodstein

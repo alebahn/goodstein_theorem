@@ -1,5 +1,6 @@
 import Data.Nat
 import Data.Fin
+import Control.WellFounded
 
 %default total
 
@@ -119,14 +120,13 @@ decHCmp (HA coef1 exp1 rest1 sml1) (HA coef2 exp2 rest2 sml2) with (decHCmp exp1
     decHCmp (HA coef1 exp1 rest1 sml1) (HA coef2 exp1 rest2 sml2) | HEq | (NMore gt) = HCMore (SameOrderHLT gt)
   decHCmp (HA coef1 exp1 rest1 sml1) (HA coef2 exp2 rest2 sml2) | (HCMore x) = HCMore (SmallerOrderHLT x)
 
-hOne : Hereditary (S (S n))
-hOne = HA 0 HZ HZ HZSSmaller
+natToBaseAcc : {base : Nat} -> (n : Nat) -> (0 acc : Accessible Data.Nat.LT n) -> List (Fin (S (S base)))
+natToBaseAcc 0 acc = []
+natToBaseAcc n@(S k) (Access rec) with (divModFin n (S (S base))) proof prf
+  natToBaseAcc n@(S k) (Access rec) | (q, r) = (natToBaseAcc q (rec q (rewrite sym $ cong fst prf in ?natToBaseQuotientLT))) ++ [r]
 
-covering
 natToBase : {base : Nat} -> (n : Nat) -> List (Fin (S (S base)))
-natToBase 0 = []
-natToBase n with (divModFin n (S (S base)))
-  natToBase n | (q, r) = (natToBase q) ++ [r]
+natToBase n = natToBaseAcc n (wellFounded n)
 
 covering
 baseToHereditary : {base : Nat} -> List (Fin (S (S base))) -> Hereditary (S (S base))
@@ -158,4 +158,3 @@ goodsteinSequence' h = hereditaryToNat h :: goodsteinSequence' (decrement (bump 
 covering
 goodsteinSequence : (start : Nat) -> List Nat
 goodsteinSequence start = goodsteinSequence' (natToHereditary {ord = 0} start)
-
