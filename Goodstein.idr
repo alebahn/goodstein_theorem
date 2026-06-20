@@ -2,6 +2,7 @@ import Data.Nat
 import Data.Fin
 import Control.WellFounded
 import Residual
+import Data.List
 
 %default total
 
@@ -129,15 +130,38 @@ ltResidualQuotient : (c, base : Nat) -> (r : Fin (S (S base))) ->
 ltResidualQuotient c base r =
   transitive (ltMultBase c base) (lteAddRight ((S c) * S (S base)))
 
-natToBaseAcc : {base : Nat} -> (n : Nat) -> (0 acc : Accessible Data.Nat.LT n) -> List (Fin (S (S base)))
-natToBaseAcc 0 acc = []
-natToBaseAcc n (Access rec) with (getResidual (S (S base)) n)
-  natToBaseAcc ((0 * S (S base)) + finToNat r) (Access rec) | (MkResidual r 0) = [r]
-  natToBaseAcc (((S c) * S (S base)) + finToNat r) (Access rec) | (MkResidual r (S c)) =
-    natToBaseAcc {base} (S c) (rec (S c) (ltResidualQuotient c base r)) ++ [r]
+natToBaseAcc : (base : Nat) -> (n : Nat) -> (0 acc : Accessible Data.Nat.LT n) -> List (Fin (S (S base)))
+natToBaseAcc base n (Access rec) with (getResidual (S (S base)) n)
+  natToBaseAcc base ((0 * S (S base)) + finToNat r) (Access rec) | (MkResidual r 0) with (r)
+    natToBaseAcc base ((0 * S (S base)) + finToNat r) (Access rec) | (MkResidual r 0) | FZ = []
+    natToBaseAcc base ((0 * S (S base)) + finToNat r) (Access rec) | (MkResidual r 0) | (FS r') = [r]
+  natToBaseAcc base (((S c) * S (S base)) + finToNat r) (Access rec) | (MkResidual r (S c)) =
+    natToBaseAcc base (S c) (rec (S c) (ltResidualQuotient c base r)) ++ [r]
 
-natToBase : {base : Nat} -> (n : Nat) -> List (Fin (S (S base)))
-natToBase n = natToBaseAcc n (wellFounded n)
+natToBase : (base : Nat) -> (n : Nat) -> List (Fin (S (S base)))
+natToBase base n = natToBaseAcc base n (wellFounded n)
+
+lengthDistributesOverAppend : (xs : List a) -> (ys : List a) -> length (xs ++ ys) = length xs + length ys
+lengthDistributesOverAppend [] ys = Refl
+lengthDistributesOverAppend (x :: xs) ys = 
+  -- IH : length (xs ++ ys) = length xs + length ys
+  -- S (length (xs ++ ys)) = S (length xs + length ys)
+  cong S (lengthDistributesOverAppend xs ys)
+
+natToBaseAccLengthSmaller : (base : Nat) -> (n : Nat) -> (0 acc : Accessible Data.Nat.LT n) ->
+                            LTE (S (length (natToBaseAcc base n acc))) (S n)
+natToBaseAccLengthSmaller base n (Access rec) with (getResidual (S (S base)) n)
+  natToBaseAccLengthSmaller base ((0 * S (S base)) + finToNat r) (Access rec) | (MkResidual r 0) with (r)
+    natToBaseAccLengthSmaller base ((0 * S (S base)) + finToNat r) (Access rec) | (MkResidual r 0) | FZ = LTESucc LTEZero
+    natToBaseAccLengthSmaller base ((0 * S (S base)) + finToNat r) (Access rec) | (MkResidual r 0) | (FS r') = lteAddRight 2
+  natToBaseAccLengthSmaller base (((S c) * S (S base)) + finToNat r) (Access rec) | (MkResidual r (S c)) =
+    rewrite lengthDistributesOverAppend (natToBaseAcc base (S c) (rec (S c) (ltResidualQuotient c base r))) [r] in
+    rewrite plusCommutative (length (natToBaseAcc base (S c) (rec (S c) (ltResidualQuotient c base r)))) 1 in
+            LTESucc (transitive (natToBaseAccLengthSmaller base (S c) (rec (S c) (ltResidualQuotient c base r))) (ltResidualQuotient c base r))
+
+natToBaseLengthSmaller : (base : Nat) -> (n : Nat) ->
+  LTE (S (length (natToBase base n))) (S n)
+natToBaseLengthSmaller base n = natToBaseAccLengthSmaller base n (wellFounded n)
 
 baseToHereditaryAcc : {base : Nat} -> (xs : List (Fin (S (S base)))) ->
   (0 acc : SizeAccessible xs) -> Hereditary (S (S base))
@@ -145,18 +169,17 @@ baseToHereditaryAcc [] acc = HZ
 baseToHereditaryAcc (FZ :: xs) (Access rec) =
   baseToHereditaryAcc xs (rec xs reflexive)
 baseToHereditaryAcc ((FS x) :: xs) (Access rec) =
-  let expDigits = natToBase (S (length xs)) in
+  let (expDigits ** smallerPrf) = (natToBase base (length xs) ** natToBaseLengthSmaller base (length xs)) in
     HA x
-      (baseToHereditaryAcc expDigits (rec expDigits ?baseToHereditaryExpSmaller))
+      (baseToHereditaryAcc expDigits (rec expDigits smallerPrf))
       (baseToHereditaryAcc xs (rec xs reflexive))
       ?HA_arg_3
 
 baseToHereditary : {base : Nat} -> List (Fin (S (S base))) -> Hereditary (S (S base))
 baseToHereditary xs = baseToHereditaryAcc xs (sizeAccessible xs)
 
-covering
 natToHereditary : {ord : Nat} -> (n : Nat) -> Hereditary (S (S ord))
-natToHereditary n = baseToHereditary (natToBase n)
+natToHereditary n = baseToHereditary (natToBase ord n)
 
 hereditaryToNat : {n : Nat} -> Hereditary n -> Nat
 hereditaryToNat HZ = Z
