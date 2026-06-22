@@ -141,6 +141,8 @@ natToBaseAcc base n (Access rec) with (getResidual (S (S base)) n)
 natToBase : (base : Nat) -> (n : Nat) -> List (Fin (S (S base)))
 natToBase base n = natToBaseAcc base n (wellFounded n)
 
+data BaseSmaller : (a, b : List (Fin base)) -> Type
+
 lengthDistributesOverAppend : (xs : List a) -> (ys : List a) -> length (xs ++ ys) = length xs + length ys
 lengthDistributesOverAppend [] ys = Refl
 lengthDistributesOverAppend (x :: xs) ys = 
@@ -165,24 +167,40 @@ natToBaseLengthSmaller base n = natToBaseAccLengthSmaller base n (wellFounded n)
 
 baseToHereditaryAcc : {base : Nat} -> (xs : List (Fin (S (S base)))) ->
   (0 acc : SizeAccessible xs) -> Hereditary (S (S base))
+
+baseToHereditaryOrder : {base : Nat} ->
+  (xs : List (Fin (S (S base)))) ->
+  (0 tailAcc : SizeAccessible xs) ->
+  (0 expAcc : SizeAccessible (natToBase base (length xs))) ->
+  SmallerOrderH
+    (baseToHereditaryAcc xs tailAcc)
+    (baseToHereditaryAcc (natToBase base (length xs)) expAcc)
+
 baseToHereditaryAcc [] acc = HZ
 baseToHereditaryAcc (FZ :: xs) (Access rec) =
   baseToHereditaryAcc xs (rec xs reflexive)
 baseToHereditaryAcc ((FS x) :: xs) (Access rec) =
   let (expDigits ** smallerPrf ** orderPrf) :
         (expDigits : List (Fin (S (S base))) **
-         smallerPrf : LTE (S (length expDigits)) (S (length xs)) **
-         SmallerOrderH
-           (baseToHereditaryAcc xs (rec xs reflexive))
-           (baseToHereditaryAcc expDigits (rec expDigits smallerPrf)))
+          smallerPrf : LTE (S (length expDigits)) (S (length xs)) **
+          SmallerOrderH
+            (baseToHereditaryAcc xs (rec xs (reflexive {x = S (length xs)})))
+            (baseToHereditaryAcc expDigits (rec expDigits smallerPrf)))
       = ( natToBase base (length xs)
         ** natToBaseLengthSmaller base (length xs)
-        ** ?HA_arg_3
+        ** baseToHereditaryOrder
+             xs
+             (rec xs (reflexive {x = S (length xs)}))
+             (rec (natToBase base (length xs)) (natToBaseLengthSmaller base (length xs)))
         ) in
-    HA x
-      (baseToHereditaryAcc expDigits (rec expDigits smallerPrf))
-      (baseToHereditaryAcc xs (rec xs reflexive))
-      orderPrf
+      HA x
+        (baseToHereditaryAcc expDigits (rec expDigits smallerPrf))
+        (baseToHereditaryAcc xs (rec xs (reflexive {x = S (length xs)})))
+        orderPrf
+
+baseToHereditaryOrder [] tailAcc expAcc = HZSSmaller
+baseToHereditaryOrder (FZ :: xs) (Access rec) expAcc = ?baseToHereditaryOrder_rhs_4
+baseToHereditaryOrder (FS x :: xs) (Access rec) expAcc = HASmaller ?OASmaller_arg_0
 
 baseToHereditary : {base : Nat} -> List (Fin (S (S base))) -> Hereditary (S (S base))
 baseToHereditary xs = baseToHereditaryAcc xs (sizeAccessible xs)
