@@ -169,11 +169,20 @@ baseToHereditaryAcc [] acc = HZ
 baseToHereditaryAcc (FZ :: xs) (Access rec) =
   baseToHereditaryAcc xs (rec xs reflexive)
 baseToHereditaryAcc ((FS x) :: xs) (Access rec) =
-  let (expDigits ** smallerPrf) = (natToBase base (length xs) ** natToBaseLengthSmaller base (length xs)) in
+  let (expDigits ** smallerPrf ** orderPrf) :
+        (expDigits : List (Fin (S (S base))) **
+         smallerPrf : LTE (S (length expDigits)) (S (length xs)) **
+         SmallerOrderH
+           (baseToHereditaryAcc xs (rec xs reflexive))
+           (baseToHereditaryAcc expDigits (rec expDigits smallerPrf)))
+      = ( natToBase base (length xs)
+        ** natToBaseLengthSmaller base (length xs)
+        ** ?HA_arg_3
+        ) in
     HA x
       (baseToHereditaryAcc expDigits (rec expDigits smallerPrf))
       (baseToHereditaryAcc xs (rec xs reflexive))
-      ?HA_arg_3
+      orderPrf
 
 baseToHereditary : {base : Nat} -> List (Fin (S (S base))) -> Hereditary (S (S base))
 baseToHereditary xs = baseToHereditaryAcc xs (sizeAccessible xs)
