@@ -209,6 +209,61 @@ plusLeftCancelLT Z right right' lt = lt
 plusLeftCancelLT (S left) right right' (LTESucc lt) =
   plusLeftCancelLT left right right' lt
 
+lteNotEqToLT : (left, right : Nat) -> left `LTE` right -> Not (left = right) -> left `LT` right
+lteNotEqToLT Z Z LTEZero neq = void (neq Refl)
+lteNotEqToLT Z (S right) LTEZero neq = LTESucc LTEZero
+lteNotEqToLT (S left) Z LTEZero neq impossible
+lteNotEqToLT (S left) (S right) (LTESucc lte) neq =
+  LTESucc (lteNotEqToLT left right lte (\eq => neq (cong S eq)))
+
+multLteMonotoneLeft : (right, left, left' : Nat) ->
+                      left `LTE` left' ->
+                      (left * right) `LTE` (left' * right)
+multLteMonotoneLeft right 0 left' LTEZero = LTEZero
+multLteMonotoneLeft right (S left) (S left') (LTESucc lte) =
+  plusLteMonotone (reflexive {x = right}) (multLteMonotoneLeft right left left' lte)
+
+quotientResidualLTE : (radix, quotient, quotient', residual : Nat) ->
+                      quotient `LTE` quotient' ->
+                      ((quotient * radix) + residual) `LTE` ((quotient' * radix) + residual)
+quotientResidualLTE radix quotient quotient' residual lte =
+  plusLteMonotoneRight residual (quotient * radix) (quotient' * radix)
+    (multLteMonotoneLeft radix quotient quotient' lte)
+
+oneMoreQuotientLeft : (radix, cm, residual : Nat) ->
+                      (((S (S cm)) * radix) + residual) =
+                      (((S cm) * radix) + (radix + residual))
+oneMoreQuotientLeft radix cm residual =
+  rewrite plusCommutative radix ((S cm) * radix) in
+  rewrite sym (plusAssociative ((S cm) * radix) radix residual) in
+    Refl
+
+oneMoreQuotientNotLT : (base, cm : Nat) -> (rn, rm : Fin (S (S base))) ->
+                       Not ((((S (S cm)) * S (S base)) + finToNat rn) `LT`
+                            (((S cm) * S (S base)) + finToNat rm))
+oneMoreQuotientNotLT base cm rn rm lt =
+  succNotLTEpred $
+    transitive
+      (transitive
+        (LTESucc (plusLeftCancelLT ((S cm) * radix) (radix + finToNat rn) (finToNat rm) $
+          rewrite sym (oneMoreQuotientLeft radix cm (finToNat rn)) in
+            lt))
+        (elemSmallerThanBound rm))
+      (lteSuccRight (lteAddRight radix {m = finToNat rn}))
+  where
+    radix : Nat
+    radix = S (S base)
+
+greaterQuotientNotLT : (base, cn, cm : Nat) -> (rn, rm : Fin (S (S base))) ->
+                       ((S cm) `LT` (S cn)) ->
+                       Not ((((S cn) * S (S base)) + finToNat rn) `LT`
+                            (((S cm) * S (S base)) + finToNat rm))
+greaterQuotientNotLT base cn cm rn rm cmLtCn lt =
+  oneMoreQuotientNotLT base cm rn rm $
+    transitive
+      (LTESucc (quotientResidualLTE (S (S base)) (S (S cm)) (S cn) (finToNat rn) cmLtCn))
+      lt
+
 natSmallerBaseAccSmaller : (base, n, m : Nat) ->
                            (0 nAcc : Accessible Data.Nat.LT n) ->
                            (0 mAcc : Accessible Data.Nat.LT m) ->
@@ -251,7 +306,11 @@ natSmallerBaseAccSmaller base n m (Access nRec) (Access mRec) lt with (getResidu
                   (finToNat rm)
                   lt)
         natSmallerBaseAccSmaller base (((S cn) * S (S base)) + finToNat rn) (((S cm) * S (S base)) + finToNat rm) (Access nRec) (Access mRec) lt | (MkResidual rn (S cn)) | (MkResidual rm (S cm)) | (No quotientNotLt) | (No quotientNotSame) =
-          ?quotientOrderContradiction
+          void (greaterQuotientNotLT base cn cm rn rm
+            (lteNotEqToLT (S cm) (S cn)
+              (notLTImpliesGTE quotientNotLt)
+              (\eq => quotientNotSame (injective (sym eq))))
+            lt)
 
 natSmallerBaseSmaller : (base, n, m : Nat) -> (n `LT` m) -> BaseSmaller (natToBase base n) (natToBase base m)
 natSmallerBaseSmaller base n m lt = natSmallerBaseAccSmaller base n m (wellFounded n) (wellFounded m) lt
