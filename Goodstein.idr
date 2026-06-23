@@ -1,8 +1,9 @@
-import Data.Nat
 import Data.Fin
+import Data.Fin.Properties
 import Control.WellFounded
 import Residual
 import Data.List
+import Decidable.Equality
 
 %default total
 
@@ -64,11 +65,11 @@ data HCmp : Hereditary n -> Hereditary n -> Type where
   HEq : HCmp x x
   HCMore : HLT y x -> HCmp x y
 
-Uninhabited (Data.Nat.LT x x) where
+[antireflLT] Uninhabited (Data.Nat.LT x x) where
   uninhabited (LTESucc x) = uninhabited x
 
 Uninhabited (HLT x x) where
-  uninhabited (SameOrderHLT y) = uninhabited y
+  uninhabited (SameOrderHLT y) = uninhabited @{antireflLT} y
   uninhabited (SmallerOrderHLT y) = uninhabited y
   uninhabited (SmallerTailHLT y) = uninhabited y
 
@@ -80,11 +81,11 @@ sameArgIsSameHLT : (x, y : HLT a b) -> x === y
 sameArgIsSameHLT HZLTHA HZLTHA = Refl
 sameArgIsSameHLT (SameOrderHLT x) (SameOrderHLT y) = cong SameOrderHLT (sameArgIsSameLT x y)
 sameArgIsSameHLT (SameOrderHLT x) (SmallerOrderHLT y) = absurd y
-sameArgIsSameHLT (SameOrderHLT x) (SmallerTailHLT y) = absurd x
+sameArgIsSameHLT (SameOrderHLT x) (SmallerTailHLT y) = absurd @{antireflLT} x
 sameArgIsSameHLT (SmallerOrderHLT x) (SameOrderHLT y) = absurd x
 sameArgIsSameHLT (SmallerOrderHLT x) (SmallerOrderHLT y) = cong SmallerOrderHLT (sameArgIsSameHLT x y)
 sameArgIsSameHLT (SmallerOrderHLT x) (SmallerTailHLT y) = absurd x
-sameArgIsSameHLT (SmallerTailHLT x) (SameOrderHLT y) = absurd y
+sameArgIsSameHLT (SmallerTailHLT x) (SameOrderHLT y) = absurd @{antireflLT} y
 sameArgIsSameHLT (SmallerTailHLT x) (SmallerOrderHLT y) = absurd y
 sameArgIsSameHLT (SmallerTailHLT x) (SmallerTailHLT y) = cong SmallerTailHLT (sameArgIsSameHLT x y)
 
@@ -141,7 +142,119 @@ natToBaseAcc base n (Access rec) with (getResidual (S (S base)) n)
 natToBase : (base : Nat) -> (n : Nat) -> List (Fin (S (S base)))
 natToBase base n = natToBaseAcc base n (wellFounded n)
 
-data BaseSmaller : (a, b : List (Fin base)) -> Type
+natToBaseAccIrrelevant : (base, n : Nat) ->
+                         (0 left : Accessible Data.Nat.LT n) ->
+                         (0 right : Accessible Data.Nat.LT n) ->
+                         natToBaseAcc base n left === natToBaseAcc base n right
+natToBaseAccIrrelevant base n (Access leftRec) (Access rightRec) with (getResidual (S (S base)) n)
+  natToBaseAccIrrelevant base ((0 * S (S base)) + finToNat r) (Access leftRec) (Access rightRec) | (MkResidual r 0) with (r)
+    natToBaseAccIrrelevant base ((0 * S (S base)) + finToNat r) (Access leftRec) (Access rightRec) | (MkResidual r 0) | FZ = Refl
+    natToBaseAccIrrelevant base ((0 * S (S base)) + finToNat r) (Access leftRec) (Access rightRec) | (MkResidual r 0) | (FS r') = Refl
+  natToBaseAccIrrelevant base (((S c) * S (S base)) + finToNat r) (Access leftRec) (Access rightRec) | (MkResidual r (S c)) =
+    cong (++ [r]) (natToBaseAccIrrelevant
+      base
+      (S c)
+      (leftRec (S c) (ltResidualQuotient c base r))
+      (rightRec (S c) (ltResidualQuotient c base r)))
+
+data BaseSmaller : (a, b : List (Fin base)) -> Type where
+  BaseEmptySmaller : (x : Fin base) -> (xs : List (Fin (S base))) -> BaseSmaller [] (FS x :: xs)
+  BaseValueSmaller : (x, y : Fin base) -> (xs : List (Fin base)) -> (finToNat x `LT` finToNat y) -> BaseSmaller (xs ++ [x]) (xs ++ [y])
+  BaseSnocSmaller : {x, y : Fin base} -> BaseSmaller xs ys -> BaseSmaller (xs ++ [x]) (ys ++ [y])
+
+snocNotEmpty : {x : a} -> {xs : List a} -> Not (xs ++ [x] === [])
+snocNotEmpty {xs = []} Refl impossible
+snocNotEmpty {xs = (y :: xs)} Refl impossible
+
+baseEmptySmallerSnocRight' : {x : Fin base} -> BaseSmaller ys xs -> (0 prf : ys = []) -> BaseSmaller [] (xs ++ [x])
+baseEmptySmallerSnocRight' (BaseEmptySmaller y zs) prf = BaseEmptySmaller y (zs ++ [x])
+baseEmptySmallerSnocRight' (BaseValueSmaller y z zs w) prf = void $ snocNotEmpty prf
+baseEmptySmallerSnocRight' (BaseSnocSmaller y) prf = void $ snocNotEmpty prf
+
+baseEmptySmallerSnocRight : {x : Fin base} -> BaseSmaller [] xs -> BaseSmaller [] (xs ++ [x])
+baseEmptySmallerSnocRight smaller = baseEmptySmallerSnocRight' smaller Refl
+
+natToBaseAccOfPosIsBiggerThanEmpty : (base, n : Nat) ->
+                                     (0 acc : Accessible Data.Nat.LT n) ->
+                                     (0 nPos : IsSucc n) ->
+                                     BaseSmaller [] (natToBaseAcc base n acc)
+natToBaseAccOfPosIsBiggerThanEmpty base n (Access rec) nPos with (getResidual (S (S base)) n)
+  natToBaseAccOfPosIsBiggerThanEmpty base ((0 * S (S base)) + finToNat r) (Access rec) nPos | (MkResidual r 0) with (r)
+    natToBaseAccOfPosIsBiggerThanEmpty base ((0 * S (S base)) + finToNat r) (Access rec) nPos | (MkResidual r 0) | FZ = void $ uninhabited nPos
+    natToBaseAccOfPosIsBiggerThanEmpty base ((0 * S (S base)) + finToNat r) (Access rec) nPos | (MkResidual r 0) | (FS x) = BaseEmptySmaller x []
+  natToBaseAccOfPosIsBiggerThanEmpty base (((S c) * S (S base)) + finToNat r) (Access rec) nPos | (MkResidual r (S c)) =
+    baseEmptySmallerSnocRight (natToBaseAccOfPosIsBiggerThanEmpty base (S c) (rec (S c) (ltResidualQuotient c base r)) ItIsSucc)
+
+positiveResidualLowerBound : (base, cn : Nat) -> (rn : Fin (S (S base))) ->
+                             LTE (S base) (((S cn) * S (S base)) + finToNat rn)
+positiveResidualLowerBound base cn rn =
+  transitive
+    (lteSuccRight (reflexive {x = S base}))
+    (transitive
+      (lteAddRight (S (S base)) {m = cn * S (S base)})
+      (lteAddRight ((S cn) * S (S base)) {m = finToNat rn}))
+
+positiveResidualNotLtFin : (base, cn : Nat) -> (rn, rm : Fin (S (S base))) ->
+                           Not ((((S cn) * S (S base)) + finToNat rn) `LT` finToNat rm)
+positiveResidualNotLtFin base cn rn rm lt =
+  succNotLTEpred $
+    transitive
+      (transitive lt (fromLteSucc (elemSmallerThanBound rm)))
+      (positiveResidualLowerBound base cn rn)
+
+plusLeftCancelLT : (left, right, right' : Nat) ->
+                   (left + right) `LT` (left + right') ->
+                   right `LT` right'
+plusLeftCancelLT Z right right' lt = lt
+plusLeftCancelLT (S left) right right' (LTESucc lt) =
+  plusLeftCancelLT left right right' lt
+
+natSmallerBaseAccSmaller : (base, n, m : Nat) ->
+                           (0 nAcc : Accessible Data.Nat.LT n) ->
+                           (0 mAcc : Accessible Data.Nat.LT m) ->
+                           (n `LT` m) ->
+                           BaseSmaller (natToBaseAcc base n nAcc) (natToBaseAcc base m mAcc)
+natSmallerBaseAccSmaller base n m (Access nRec) (Access mRec) lt with (getResidual (S (S base)) n)
+  natSmallerBaseAccSmaller base ((0 * S (S base)) + finToNat rn) m (Access nRec) (Access mRec) lt | (MkResidual rn 0) with (rn)
+    natSmallerBaseAccSmaller base ((0 * S (S base)) + finToNat rn) m (Access nRec) (Access mRec) lt | (MkResidual rn 0) | FZ with (getResidual (S (S base)) m)
+      natSmallerBaseAccSmaller base ((0 * S (S base)) + finToNat rn) ((0 * S (S base)) + finToNat rm) (Access nRec) (Access mRec) lt | (MkResidual rn 0) | FZ | (MkResidual rm 0) with (rm)
+        natSmallerBaseAccSmaller base ((0 * S (S base)) + finToNat rn) ((0 * S (S base)) + finToNat rm) (Access nRec) (Access mRec) lt | (MkResidual rn 0) | FZ | (MkResidual rm 0) | FZ = absurd @{antireflLT} lt
+        natSmallerBaseAccSmaller base ((0 * S (S base)) + finToNat rn) ((0 * S (S base)) + finToNat rm) (Access nRec) (Access mRec) lt | (MkResidual rn 0) | FZ | (MkResidual rm 0) | (FS rm') = BaseEmptySmaller rm' []
+      natSmallerBaseAccSmaller base ((0 * S (S base)) + finToNat rn) (((S cm) * S (S base)) + finToNat rm) (Access nRec) (Access mRec) lt | (MkResidual rn 0) | FZ | (MkResidual rm (S cm)) =
+        baseEmptySmallerSnocRight (natToBaseAccOfPosIsBiggerThanEmpty base (S cm) (mRec (S cm) (ltResidualQuotient cm base rm)) ItIsSucc)
+    natSmallerBaseAccSmaller base ((0 * S (S base)) + finToNat rn) m (Access nRec) (Access mRec) lt | (MkResidual rn 0) | (FS rn') with (getResidual (S (S base)) m)
+      natSmallerBaseAccSmaller base ((0 * S (S base)) + finToNat rn) ((0 * S (S base)) + finToNat rm) (Access nRec) (Access mRec) lt | (MkResidual rn 0) | (FS rn') | (MkResidual rm 0) with (rm)
+        natSmallerBaseAccSmaller base ((0 * S (S base)) + finToNat rn) ((0 * S (S base)) + finToNat rm) (Access nRec) (Access mRec) lt | (MkResidual rn 0) | (FS rn') | (MkResidual rm 0) | FZ = absurd lt
+        natSmallerBaseAccSmaller base ((0 * S (S base)) + finToNat rn) ((0 * S (S base)) + finToNat rm) (Access nRec) (Access mRec) lt | (MkResidual rn 0) | (FS rn') | (MkResidual rm 0) | (FS rm') = BaseValueSmaller (FS rn') (FS rm') [] lt
+      natSmallerBaseAccSmaller base ((0 * S (S base)) + finToNat rn) (((S cm) * S (S base)) + finToNat rm) (Access nRec) (Access mRec) lt | (MkResidual rn 0) | (FS rn') | (MkResidual rm (S cm)) =
+        BaseSnocSmaller (natToBaseAccOfPosIsBiggerThanEmpty base (S cm) (mRec (S cm) (ltResidualQuotient cm base rm)) ItIsSucc)
+  natSmallerBaseAccSmaller base (((S cn) * S (S base)) + finToNat rn) m (Access nRec) (Access mRec) lt | (MkResidual rn (S cn)) with (getResidual (S (S base)) m)
+    natSmallerBaseAccSmaller base (((S cn) * S (S base)) + finToNat rn) ((0 * S (S base)) + finToNat rm) (Access nRec) (Access mRec) lt | (MkResidual rn (S cn)) | (MkResidual rm 0) =
+      void (positiveResidualNotLtFin base cn rn rm lt)
+    natSmallerBaseAccSmaller base (((S cn) * S (S base)) + finToNat rn) (((S cm) * S (S base)) + finToNat rm) (Access nRec) (Access mRec) lt | (MkResidual rn (S cn)) | (MkResidual rm (S cm)) with (isLTE (S (S cn)) (S cm))
+      natSmallerBaseAccSmaller base (((S cn) * S (S base)) + finToNat rn) (((S cm) * S (S base)) + finToNat rm) (Access nRec) (Access mRec) lt | (MkResidual rn (S cn)) | (MkResidual rm (S cm)) | (Yes quotientLt) =
+        BaseSnocSmaller (natSmallerBaseAccSmaller base (S cn) (S cm) (nRec (S cn) (ltResidualQuotient cn base rn)) (mRec (S cm) (ltResidualQuotient cm base rm)) quotientLt)
+      natSmallerBaseAccSmaller base (((S cn) * S (S base)) + finToNat rn) (((S cm) * S (S base)) + finToNat rm) (Access nRec) (Access mRec) lt | (MkResidual rn (S cn)) | (MkResidual rm (S cm)) | (No quotientNotLt) with (decEq cn cm)
+        natSmallerBaseAccSmaller base (((S cn) * S (S base)) + finToNat rn) (((S cn) * S (S base)) + finToNat rm) (Access nRec) (Access mRec) lt | (MkResidual rn (S cn)) | (MkResidual rm (S cn)) | (No quotientNotLt) | (Yes Refl) =
+          rewrite sym (natToBaseAccIrrelevant
+            base
+            (S cn)
+            (nRec (S cn) (ltResidualQuotient cn base rn))
+            (mRec (S cn) (ltResidualQuotient cn base rm))) in
+              BaseValueSmaller
+                rn
+                rm
+                (natToBaseAcc base (S cn) (nRec (S cn) (ltResidualQuotient cn base rn)))
+                (plusLeftCancelLT
+                  (S (S (base + (cn * S (S base)))))
+                  (finToNat rn)
+                  (finToNat rm)
+                  lt)
+        natSmallerBaseAccSmaller base (((S cn) * S (S base)) + finToNat rn) (((S cm) * S (S base)) + finToNat rm) (Access nRec) (Access mRec) lt | (MkResidual rn (S cn)) | (MkResidual rm (S cm)) | (No quotientNotLt) | (No quotientNotSame) =
+          ?quotientOrderContradiction
+
+natSmallerBaseSmaller : (base, n, m : Nat) -> (n `LT` m) -> BaseSmaller (natToBase base n) (natToBase base m)
+natSmallerBaseSmaller base n m lt = natSmallerBaseAccSmaller base n m (wellFounded n) (wellFounded m) lt
 
 lengthDistributesOverAppend : (xs : List a) -> (ys : List a) -> length (xs ++ ys) = length xs + length ys
 lengthDistributesOverAppend [] ys = Refl
