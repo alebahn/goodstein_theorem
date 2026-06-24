@@ -440,17 +440,22 @@ baseToHereditaryAccIrrelevent ((FS x) :: xs) (Access rec1) (Access rec2) =
            (rec2 (natToBase base (length xs)) (natToBaseLengthSmaller base (length xs)))) in
           Refl
 
-baseSmallerHereditarySmaller [] (FS x :: xs) (BaseEmptySmaller x xs) aAcc (Access rec) = HZLTHA
-baseSmallerHereditarySmaller ([] ++ [x]) ([] ++ [FZ]) (BaseValueSmaller x FZ [] lt) (Access aRec) (Access bRec) = absurd lt
-baseSmallerHereditarySmaller ([] ++ [FZ]) ([] ++ [FS y]) (BaseValueSmaller FZ (FS y) [] lt) (Access aRec) (Access bRec) = HZLTHA
-baseSmallerHereditarySmaller ([] ++ [FS x]) ([] ++ [FS y]) (BaseValueSmaller (FS x) (FS y) [] (LTESucc lt)) (Access aRec) (Access bRec) =
+baseValueSmallerHereditarySmaller : (x : Fin (S (S base))) -> (y : Fin (S (S base))) ->
+                                    LTE (S (finToNat x)) (finToNat y) ->
+                                    (zs : List (Fin (S (S base)))) ->
+                                    (0 aAcc : SizeAccessible (zs ++ [x])) ->
+                                    (0 bAcc : SizeAccessible (zs ++ [y])) ->
+                                    HLT (baseToHereditaryAcc (zs ++ [x]) aAcc) (baseToHereditaryAcc (zs ++ [y]) bAcc)
+baseValueSmallerHereditarySmaller x FZ lt [] (Access aRec) (Access bRec) = absurd lt
+baseValueSmallerHereditarySmaller FZ (FS y) lt [] (Access aRec) (Access bRec) = HZLTHA
+baseValueSmallerHereditarySmaller (FS x) (FS y) (LTESucc lt) [] (Access aRec) (Access bRec) =
   rewrite baseToHereditaryAccIrrelevent (natToBaseAcc base 0 (sizeAccessible 0))
             (aRec (natToBaseAcc base 0 (sizeAccessible 0)) (natToBaseAccLengthSmaller base 0 (sizeAccessible 0)))
             (bRec (natToBaseAcc base 0 (sizeAccessible 0)) (natToBaseAccLengthSmaller base 0 (sizeAccessible 0))) in
           SameOrderHLT lt
-baseSmallerHereditarySmaller ((FZ :: xs) ++ [x]) ((FZ :: xs) ++ [y]) (BaseValueSmaller x y (FZ :: xs) lt) (Access aRec) (Access bRec) =
-  baseSmallerHereditarySmaller (xs ++ [x]) (xs ++ [y]) (BaseValueSmaller x y xs lt) (aRec (xs ++ [x]) (LTESucc reflexive)) (bRec (xs ++ [y]) (LTESucc reflexive))
-baseSmallerHereditarySmaller (((FS z) :: xs) ++ [x]) (((FS z) :: xs) ++ [y]) (BaseValueSmaller x y ((FS z) :: xs) lt) (Access aRec) (Access bRec) =
+baseValueSmallerHereditarySmaller x y lt (FZ :: xs) (Access aRec) (Access bRec) =
+  baseValueSmallerHereditarySmaller x y lt xs (aRec (xs ++ [x]) (LTESucc reflexive)) (bRec (xs ++ [y]) (LTESucc reflexive))
+baseValueSmallerHereditarySmaller x y lt ((FS z) :: xs) (Access aRec) (Access bRec) =
   rewrite baseToHereditaryAccIrrelevent (natToBase base (length (xs ++ [x])))
             (aRec (natToBase base (length (xs ++ [x])))
                   (natToBaseAccLengthSmaller base (length (xs ++ [x])) (sizeAccessible (length (xs ++ [x])))))
@@ -460,8 +465,12 @@ baseSmallerHereditarySmaller (((FS z) :: xs) ++ [x]) (((FS z) :: xs) ++ [y]) (Ba
                   (natToBaseAccLengthSmaller base (length (xs ++ [y])) (sizeAccessible (length (xs ++ [y]))))) in
   rewrite lengthDistributesOverAppend xs [x] in
   rewrite sym $ lengthDistributesOverAppend xs [y] in
-          SmallerTailHLT ?SmallerTailHLT_arg_0
+          SmallerTailHLT (?ll $ baseValueSmallerHereditarySmaller x y lt xs (aRec (xs ++ [x]) (LTESucc reflexive)) (bRec (xs ++ [y]) (LTESucc reflexive)))
+
+baseSmallerHereditarySmaller (zs ++ [x]) (zs ++ [y]) (BaseValueSmaller x y zs lt) aAcc bAcc =
+  baseValueSmallerHereditarySmaller x y lt zs aAcc bAcc
 baseSmallerHereditarySmaller (xs ++ [x]) (ys ++ [y]) (BaseSnocSmaller sml) aAcc bAcc = ?baseSmallerHereditarySmaller_rhs_2
+baseSmallerHereditarySmaller [] (FS x :: xs) (BaseEmptySmaller x xs) aAcc (Access rec) = HZLTHA
 
 --baseSmallerHereditarySmaller [] (FZ :: xs) smaller aAcc bAcc = void $ emptyNotSmallerFZ smaller
 --baseSmallerHereditarySmaller [] ((FS x) :: xs) smaller aAcc bAcc = baseToHereditaryAccPosIsBiggerThanHZ x xs bAcc
