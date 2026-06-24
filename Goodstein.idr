@@ -159,7 +159,8 @@ natToBaseAccIrrelevant base n (Access leftRec) (Access rightRec) with (getResidu
 
 data BaseSmaller : (a, b : List (Fin base)) -> Type where
   BaseEmptySmaller : (x : Fin base) -> (xs : List (Fin (S base))) -> BaseSmaller [] (FS x :: xs)
-  BaseValueSmaller : (x, y : Fin base) -> (xs : List (Fin base)) -> (finToNat x `LT` finToNat y) -> BaseSmaller (xs ++ [x]) (xs ++ [y])
+  BaseValueSmaller : (x, y : Fin base) -> (xs : List (Fin base)) -> (finToNat x `LT` finToNat y) ->
+                     BaseSmaller (xs ++ [x]) (xs ++ [y])
   BaseSnocSmaller : {x, y : Fin base} -> BaseSmaller xs ys -> BaseSmaller (xs ++ [x]) (ys ++ [y])
 
 snocNotEmpty : {x : a} -> {xs : List a} -> Not (xs ++ [x] === [])
@@ -173,6 +174,22 @@ baseEmptySmallerSnocRight' (BaseSnocSmaller y) prf = void $ snocNotEmpty prf
 
 baseEmptySmallerSnocRight : {x : Fin base} -> BaseSmaller [] xs -> BaseSmaller [] (xs ++ [x])
 baseEmptySmallerSnocRight smaller = baseEmptySmallerSnocRight' smaller Refl
+
+Uninhabited (BaseSmaller xs []) where
+  uninhabited a = uninhabited' a Refl
+  where
+    uninhabited' : BaseSmaller zs ys -> (0 prfY : ys = []) -> Void
+    uninhabited' (BaseEmptySmaller _ _) Refl impossible
+    uninhabited' (BaseValueSmaller x y xs1 z) prfY = void $ snocNotEmpty prfY
+    uninhabited' (BaseSnocSmaller x) prfY = void $ snocNotEmpty prfY
+
+emptyNotSmallerFZ : BaseSmaller [] (FZ :: xs) -> Void
+emptyNotSmallerFZ small = emptyNotSmallerFZ' small Refl Refl
+where
+  emptyNotSmallerFZ' : BaseSmaller ys zs -> (0 prf1 : ys = []) -> (0 prf2 : zs = (FZ :: xs)) -> Void
+  emptyNotSmallerFZ' (BaseEmptySmaller _ _) _ Refl impossible
+  emptyNotSmallerFZ' (BaseValueSmaller x y xs1 z) prf1 prf2 = void $ snocNotEmpty prf1
+  emptyNotSmallerFZ' (BaseSnocSmaller x) prf1 prf2 = void $ snocNotEmpty prf1
 
 natToBaseAccOfPosIsBiggerThanEmpty : (base, n : Nat) ->
                                      (0 acc : Accessible Data.Nat.LT n) ->
@@ -337,8 +354,42 @@ natToBaseLengthSmaller : (base : Nat) -> (n : Nat) ->
   LTE (S (length (natToBase base n))) (S n)
 natToBaseLengthSmaller base n = natToBaseAccLengthSmaller base n (wellFounded n)
 
+Transitive (Hereditary n) HLT where
+  transitive HZLTHA HZLTHA impossible
+  transitive (SameOrderHLT w) HZLTHA impossible
+  transitive (SmallerOrderHLT w) HZLTHA impossible
+  transitive (SmallerTailHLT w) HZLTHA impossible
+  transitive HZLTHA (SameOrderHLT w) = HZLTHA
+  transitive HZLTHA (SmallerOrderHLT w) = HZLTHA
+  transitive HZLTHA (SmallerTailHLT w) = HZLTHA
+  transitive (SameOrderHLT w) (SameOrderHLT v) = SameOrderHLT (transitive w (lteSuccLeft v))
+  transitive (SameOrderHLT w) (SmallerOrderHLT v) = SmallerOrderHLT v
+  transitive (SameOrderHLT w) (SmallerTailHLT v) = SameOrderHLT w
+  transitive (SmallerOrderHLT w) (SameOrderHLT v) = SmallerOrderHLT w
+  transitive (SmallerOrderHLT w) (SmallerOrderHLT v) = SmallerOrderHLT (transitive w v)
+  transitive (SmallerOrderHLT w) (SmallerTailHLT v) = SmallerOrderHLT w
+  transitive (SmallerTailHLT w) (SameOrderHLT v) = SameOrderHLT v
+  transitive (SmallerTailHLT w) (SmallerOrderHLT v) = SmallerOrderHLT v
+  transitive (SmallerTailHLT w) (SmallerTailHLT v) = SmallerTailHLT (transitive w v)
+
 baseToHereditaryAcc : {base : Nat} -> (xs : List (Fin (S (S base)))) ->
   (0 acc : SizeAccessible xs) -> Hereditary (S (S base))
+
+smallerOrderTransSmaller : {h, left, right : Hereditary n} ->
+                           SmallerOrderH h left -> HLT left right ->
+                           SmallerOrderH h right
+smallerOrderTransSmaller HZSSmaller _ = HZSSmaller
+smallerOrderTransSmaller (HASmaller lta) ltb = HASmaller (transitive lta ltb)
+
+baseToHereditaryAccPosIsBiggerThanHZ : (x : Fin (S base)) ->
+                                       (xs : List (Fin (S (S base)))) ->
+                                       (0 acc : SizeAccessible (FS x :: xs)) ->
+                                       HLT HZ (baseToHereditaryAcc (FS x :: xs) acc)
+
+baseSmallerHereditarySmaller : (as, bs : List (Fin (S (S base)))) -> BaseSmaller as bs ->
+                               (0 aAcc : SizeAccessible as) ->
+                               (0 bAcc : SizeAccessible bs) ->
+                               HLT (baseToHereditaryAcc as aAcc) (baseToHereditaryAcc bs bAcc)
 
 baseToHereditaryOrder : {base : Nat} ->
   (xs : List (Fin (S (S base)))) ->
@@ -370,9 +421,66 @@ baseToHereditaryAcc ((FS x) :: xs) (Access rec) =
         (baseToHereditaryAcc xs (rec xs (reflexive {x = S (length xs)})))
         orderPrf
 
+baseToHereditaryAccIrrelevent : {base : Nat} -> (xs : List (Fin (S (S base)))) ->
+  (0 acc1 : SizeAccessible xs) -> (0 acc2 : SizeAccessible xs) -> baseToHereditaryAcc xs acc1 === baseToHereditaryAcc xs acc2
+baseToHereditaryAccIrrelevent [] acc1 acc2 = Refl
+baseToHereditaryAccIrrelevent (FZ :: xs) (Access rec1) (Access rec2) = baseToHereditaryAccIrrelevent xs _ _
+baseToHereditaryAccIrrelevent ((FS x) :: xs) (Access rec1) (Access rec2) =
+  rewrite baseToHereditaryAccIrrelevent (natToBase base (length xs))
+                                        (rec1 (natToBase base (length xs)) (natToBaseLengthSmaller base (length xs)))
+                                        (rec2 (natToBase base (length xs)) (natToBaseLengthSmaller base (length xs))) in
+  rewrite baseToHereditaryAccIrrelevent xs (rec1 xs (LTESucc reflexive)) (rec2 xs (LTESucc reflexive)) in
+  rewrite sameArgIsSameOrderH (baseToHereditaryOrder xs (rec1 xs (reflexive {x = S (length xs)}))
+            (rec1 (natToBase base (length xs)) (natToBaseLengthSmaller base (length xs))))
+            (rewrite baseToHereditaryAccIrrelevent (natToBase base (length xs))
+              (rec1 (natToBase base (length xs)) (natToBaseLengthSmaller base (length xs)))
+              (rec2 (natToBase base (length xs)) (natToBaseLengthSmaller base (length xs))) in
+  rewrite baseToHereditaryAccIrrelevent xs (rec1 xs (LTESucc reflexive)) (rec2 xs (LTESucc reflexive)) in
+           baseToHereditaryOrder xs (rec2 xs (reflexive {x = S (length xs)}))
+           (rec2 (natToBase base (length xs)) (natToBaseLengthSmaller base (length xs)))) in
+          Refl
+
+baseSmallerHereditarySmaller [] (FS x :: xs) (BaseEmptySmaller x xs) aAcc (Access rec) = HZLTHA
+baseSmallerHereditarySmaller ([] ++ [x]) ([] ++ [FZ]) (BaseValueSmaller x FZ [] lt) (Access aRec) (Access bRec) = absurd lt
+baseSmallerHereditarySmaller ([] ++ [FZ]) ([] ++ [FS y]) (BaseValueSmaller FZ (FS y) [] lt) (Access aRec) (Access bRec) = HZLTHA
+baseSmallerHereditarySmaller ([] ++ [FS x]) ([] ++ [FS y]) (BaseValueSmaller (FS x) (FS y) [] (LTESucc lt)) (Access aRec) (Access bRec) =
+  rewrite baseToHereditaryAccIrrelevent (natToBaseAcc base 0 (sizeAccessible 0))
+            (aRec (natToBaseAcc base 0 (sizeAccessible 0)) (natToBaseAccLengthSmaller base 0 (sizeAccessible 0)))
+            (bRec (natToBaseAcc base 0 (sizeAccessible 0)) (natToBaseAccLengthSmaller base 0 (sizeAccessible 0))) in
+          SameOrderHLT lt
+baseSmallerHereditarySmaller ((FZ :: xs) ++ [x]) ((FZ :: xs) ++ [y]) (BaseValueSmaller x y (FZ :: xs) lt) (Access aRec) (Access bRec) =
+  baseSmallerHereditarySmaller (xs ++ [x]) (xs ++ [y]) (BaseValueSmaller x y xs lt) (aRec (xs ++ [x]) (LTESucc reflexive)) (bRec (xs ++ [y]) (LTESucc reflexive))
+baseSmallerHereditarySmaller (((FS z) :: xs) ++ [x]) (((FS z) :: xs) ++ [y]) (BaseValueSmaller x y ((FS z) :: xs) lt) (Access aRec) (Access bRec) =
+  rewrite baseToHereditaryAccIrrelevent (natToBase base (length (xs ++ [x])))
+            (aRec (natToBase base (length (xs ++ [x])))
+                  (natToBaseAccLengthSmaller base (length (xs ++ [x])) (sizeAccessible (length (xs ++ [x])))))
+            (rewrite lengthDistributesOverAppend xs [x] in
+             rewrite sym $ lengthDistributesOverAppend xs [y] in
+              bRec (natToBase base (length (xs ++ [y])))
+                  (natToBaseAccLengthSmaller base (length (xs ++ [y])) (sizeAccessible (length (xs ++ [y]))))) in
+  rewrite lengthDistributesOverAppend xs [x] in
+  rewrite sym $ lengthDistributesOverAppend xs [y] in
+          SmallerTailHLT ?SmallerTailHLT_arg_0
+baseSmallerHereditarySmaller (xs ++ [x]) (ys ++ [y]) (BaseSnocSmaller sml) aAcc bAcc = ?baseSmallerHereditarySmaller_rhs_2
+
+--baseSmallerHereditarySmaller [] (FZ :: xs) smaller aAcc bAcc = void $ emptyNotSmallerFZ smaller
+--baseSmallerHereditarySmaller [] ((FS x) :: xs) smaller aAcc bAcc = baseToHereditaryAccPosIsBiggerThanHZ x xs bAcc
+--baseSmallerHereditarySmaller (FZ :: xs) (FZ :: ys) smaller (Access aRec) (Access bRec) =
+--  baseSmallerHereditarySmaller xs ys (baseSmallerFromCons xs ys smaller) _ _
+--baseSmallerHereditarySmaller (FZ :: xs) ((FS y) :: ys) smaller (Access aRec) (Access bRec) = ?baseSmallerHereditarySmaller_rhs_10
+--baseSmallerHereditarySmaller ((FS x) :: xs) (y :: ys) smaller (Access aRec) (Access bRec) = ?baseSmallerHereditarySmaller_rhs_8
+--baseSmallerHereditarySmaller as [] smaller aAcc bAcc = absurd smaller
+
 baseToHereditaryOrder [] tailAcc expAcc = HZSSmaller
-baseToHereditaryOrder (FZ :: xs) (Access rec) expAcc = ?baseToHereditaryOrder_rhs_4
-baseToHereditaryOrder (FS x :: xs) (Access rec) expAcc = HASmaller ?OASmaller_arg_0
+baseToHereditaryOrder (FZ :: xs) (Access rec) (Access eRec) =
+  smallerOrderTransSmaller (baseToHereditaryOrder xs (rec xs reflexive) (rec (natToBase base (length xs)) (natToBaseLengthSmaller base (length xs))))
+                           (baseSmallerHereditarySmaller (natToBase base (length xs)) (natToBase base (length (FZ :: xs)))
+                                                         (natSmallerBaseSmaller base (length xs) (length (FZ :: xs)) reflexive)
+                                                         _ _)
+baseToHereditaryOrder (FS x :: xs) (Access rec) expAcc =
+  HASmaller (baseSmallerHereditarySmaller (natToBase base (length xs)) (natToBase base (length (FS x :: xs)))
+                                          (natSmallerBaseSmaller base (length xs) (length (FS x :: xs)) reflexive)
+                                          _ _)
 
 baseToHereditary : {base : Nat} -> List (Fin (S (S base))) -> Hereditary (S (S base))
 baseToHereditary xs = baseToHereditaryAcc xs (sizeAccessible xs)
