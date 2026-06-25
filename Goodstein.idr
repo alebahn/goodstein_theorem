@@ -449,18 +449,15 @@ baseValueSmallerHereditarySmaller (FS x) (FS y) (LTESucc lt) [] (Access aRec) (A
           SameOrderHLT lt
 baseValueSmallerHereditarySmaller x y lt (FZ :: xs) (Access aRec) (Access bRec) =
   baseValueSmallerHereditarySmaller x y lt xs (aRec (xs ++ [x]) (LTESucc reflexive)) (bRec (xs ++ [y]) (LTESucc reflexive))
-baseValueSmallerHereditarySmaller x y lt ((FS z) :: xs) (Access aRec) (Access bRec) =
+baseValueSmallerHereditarySmaller x y lt (FS z :: xs) (Access aRec) (Access bRec) =
   rewrite baseToHereditaryAccIrrelevent (natToBase base (length (xs ++ [x])))
             (aRec (natToBase base (length (xs ++ [x])))
                   (natToBaseAccLengthSmaller base (length (xs ++ [x])) (sizeAccessible (length (xs ++ [x])))))
-            (rewrite lengthDistributesOverAppend xs [x] in
-             rewrite sym $ lengthDistributesOverAppend xs [y] in
+            (rewrite trans (lengthDistributesOverAppend xs [x]) (sym $ lengthDistributesOverAppend xs [y]) in
               bRec (natToBase base (length (xs ++ [y])))
                   (natToBaseAccLengthSmaller base (length (xs ++ [y])) (sizeAccessible (length (xs ++ [y]))))) in
-  --rewrite lengthDistributesOverAppend xs [x] in
-  --rewrite sym $ lengthDistributesOverAppend xs [y] in
-          ?jlo
-          --SmallerTailHLT (?ll $ baseValueSmallerHereditarySmaller x y lt xs (aRec (xs ++ [x]) (LTESucc reflexive)) (bRec (xs ++ [y]) (LTESucc reflexive)))
+  rewrite cong (natToBase base) $ trans (lengthDistributesOverAppend xs [x]) (sym $ lengthDistributesOverAppend xs [y]) in
+          SmallerTailHLT (baseValueSmallerHereditarySmaller x y lt xs (aRec (xs ++ [x]) (LTESucc reflexive)) (bRec (xs ++ [y]) (LTESucc reflexive)))
 
 baseSmallerHereditarySmaller (zs ++ [x]) (zs ++ [y]) (BaseValueSmaller x y zs lt) aAcc bAcc =
   baseValueSmallerHereditarySmaller x y lt zs aAcc bAcc
