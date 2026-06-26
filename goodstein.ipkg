@@ -1,6 +1,6 @@
 package goodstein
 version = 0.0.1
 
-modules = Residual
+modules = Residual, Ordinal, Hereditary, Base
 
 main = Goodstein
