@@ -49,9 +49,9 @@ mutual
 
   data HLT : Hereditary n -> Hereditary n -> Type where
     HZLTHA : HLT HZ (HA coef e rest so)
-    SameOrderHLT : LT (finToNat c1) (finToNat c2) -> HLT (HA c1 e r1 so1) (HA c2 e r2 so2)
-    SmallerOrderHLT : HLT e1 e2 -> HLT (HA c1 e1 r1 so1) (HA c2 e2 r2 so2)
-    SmallerTailHLT : HLT r1 r2 -> HLT (HA c e r1 so1) (HA c e r2 so2)
+    SameOrderHLT : (lt : LT (finToNat c1) (finToNat c2)) -> HLT (HA c1 e r1 so1) (HA c2 e r2 so2)
+    SmallerOrderHLT : (hlt : HLT e1 e2) -> HLT (HA c1 e1 r1 so1) (HA c2 e2 r2 so2)
+    SmallerTailHLT : (hlt : HLT r1 r2) -> HLT (HA c e r1 so1) (HA c e r2 so2)
 
 data FCmp : Fin n -> Fin n -> Type where
   NLess : LT (finToNat j) (finToNat k) -> FCmp j k
@@ -245,9 +245,6 @@ where
   emptyNotSmallerFZ' (BaseValueSmaller x y xs1 z) prf1 prf2 = void $ snocNotEmpty prf1
   emptyNotSmallerFZ' (BaseSnocSmaller x) prf1 prf2 = void $ snocNotEmpty prf1
 
-headEqOrLT : (x, y : Fin base) -> (xs, ys : List (Fin base)) -> BaseSmaller (x :: xs) (y :: ys) -> Either (x === y, BaseSmaller xs yz) (finToNat x `LT` finToNat y)
-
-
 natToBaseAccOfPosIsBiggerThanEmpty : (base, n : Nat) ->
                                      (0 acc : Accessible Data.Nat.LT n) ->
                                      (0 nPos : IsSucc n) ->
@@ -431,11 +428,6 @@ smallerOrderTransSmaller : {h, left, right : Hereditary n} ->
 smallerOrderTransSmaller HZSSmaller _ = HZSSmaller
 smallerOrderTransSmaller (HASmaller lta) ltb = HASmaller (transitive lta ltb)
 
-baseToHereditaryAccPosIsBiggerThanHZ : (x : Fin (S base)) ->
-                                       (xs : List (Fin (S (S base)))) ->
-                                       (0 acc : SizeAccessible (FS x :: xs)) ->
-                                       HLT HZ (baseToHereditaryAcc (FS x :: xs) acc)
-
 baseSmallerHereditarySmaller : {base : Nat} ->
                                (as, bs : List (Fin (S (S base)))) -> BaseSmaller as bs ->
                                (0 aAcc : SizeAccessible as) ->
@@ -564,9 +556,28 @@ hereditaryToNat : {n : Nat} -> Hereditary n -> Nat
 hereditaryToNat HZ = Z
 hereditaryToNat (HA coef exp rest x) = (S (finToNat coef)) * power n (hereditaryToNat exp) + (hereditaryToNat rest)
 
+finToNatWeakenSame : (k : Fin n) -> finToNat (weaken k) === finToNat k
+finToNatWeakenSame FZ = Refl
+finToNatWeakenSame (FS k) = cong S (finToNatWeakenSame k)
+
 bump : Hereditary n -> Hereditary (S n)
+
+bumpSmaller : HLT h g -> HLT (bump h) (bump g)
+
+bumpOrder : SmallerOrderH h o -> SmallerOrderH (bump h) (bump o)
+
 bump HZ = HZ
-bump (HA coef exp rest smaller) = HA (weaken coef) (bump exp) (bump rest) ?bumpSmaller
+bump (HA coef exp rest smaller) = HA (weaken coef) (bump exp) (bump rest) (bumpOrder smaller)
+
+bumpSmaller HZLTHA = HZLTHA
+bumpSmaller (SameOrderHLT lt {c1} {c2}) = SameOrderHLT $ rewrite (finToNatWeakenSame c1) in
+                                                         rewrite (finToNatWeakenSame c2) in
+                                                                 lt
+bumpSmaller (SmallerOrderHLT hlt) = SmallerOrderHLT (bumpSmaller hlt)
+bumpSmaller (SmallerTailHLT hlt) = SmallerTailHLT (bumpSmaller hlt)
+
+bumpOrder HZSSmaller = HZSSmaller
+bumpOrder (HASmaller hlt) = HASmaller (bumpSmaller hlt)
 
 decrement : (h : Hereditary (S (S ord))) -> {auto nonzero : HLT HZ h} -> Hereditary (S (S ord))
 decrement (HA coef e HZ so) {nonzero = HZLTHA} = ?decrement_rhs_1
