@@ -579,8 +579,16 @@ bumpSmaller (SmallerTailHLT hlt) = SmallerTailHLT (bumpSmaller hlt)
 bumpOrder HZSSmaller = HZSSmaller
 bumpOrder (HASmaller hlt) = HASmaller (bumpSmaller hlt)
 
-decrement : (h : Hereditary (S (S ord))) -> {auto nonzero : HLT HZ h} -> Hereditary (S (S ord))
-decrement (HA coef e HZ so) {nonzero = HZLTHA} = ?decrement_rhs_1
+covering
+decrement : {base : Nat} -> (h : Hereditary (S (S base))) -> {auto nonzero : HLT HZ h} -> Hereditary (S (S base))
+
+covering
+borrow : {base : Nat} -> (h : Hereditary (S (S base))) -> Hereditary (S (S base))
+borrow HZ = HZ
+borrow ee@(HA coef exp rest smaller) = HA last (decrement ee) (borrow (decrement ee)) ?borrowSmaller
+
+decrement (HA FZ e HZ so) {nonzero = HZLTHA} = borrow e
+decrement (HA (FS c) e HZ so) {nonzero = HZLTHA} = HA (weaken c) e (borrow e) ?borrowSmallerer
 decrement (HA coef e rest@(HA _ _ _ _) so) {nonzero = HZLTHA} = HA coef e (decrement rest) ?decSmaller
 
 covering
