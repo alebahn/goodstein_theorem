@@ -1,5 +1,9 @@
+import Control.Relation
+import Data.Nat.Order.Properties
 import Data.Fin
+import Data.Fin.Properties
 import Control.WellFounded
+import Syntax.PreorderReasoning.Generic
 import Base
 
 %default total
@@ -212,3 +216,75 @@ natToHereditary n = baseToHereditary (natToBase ord n)
 hereditaryToNat : {n : Nat} -> Hereditary n -> Nat
 hereditaryToNat HZ = Z
 hereditaryToNat (HA coef exp rest x) = (S (finToNat coef)) * power n (hereditaryToNat exp) + (hereditaryToNat rest)
+
+-- multPowerPowerPlus : (base, exp, exp' : Nat) ->
+--   power base (exp + exp') = (power base exp) * (power base exp')
+-- multPowerPowerPlus base Z       exp' =
+--     rewrite sym $ plusZeroRightNeutral (power base exp') in Refl
+-- multPowerPowerPlus base (S exp) exp' =
+--   rewrite multPowerPowerPlus base exp exp' in
+--     rewrite sym $ multAssociative base (power base exp) (power base exp') in
+--       Refl
+
+--powerOneNeutral : (base : Nat) -> power base 1 = base
+--powerOneNeutral base = rewrite multCommutative base 1 in multOneLeftNeutral base
+--
+--powerOneSuccOne : (exp : Nat) -> power 1 exp = 1
+--powerOneSuccOne Z       = Refl
+--powerOneSuccOne (S exp) = rewrite powerOneSuccOne exp in Refl
+--
+--powerPowerMultPower : (base, exp, exp' : Nat) ->
+--  power (power base exp) exp' = power base (exp * exp')
+--powerPowerMultPower _ exp Z = rewrite multZeroRightZero exp in Refl
+--powerPowerMultPower base exp (S exp') =
+--  rewrite powerPowerMultPower base exp exp' in
+--  rewrite multRightSuccPlus exp exp' in
+--  rewrite sym $ multPowerPowerPlus base exp (exp * exp') in
+--          Refl
+
+powerPositiveBasePositive : (b, e : Nat) -> power (S b) e `GT` 0
+powerPositiveBasePositive b 0 = LTESucc LTEZero
+powerPositiveBasePositive b (S e) = transitive (powerPositiveBasePositive b e) (lteAddRight (power (S b) e))
+
+{n : Nat} -> Sized (Hereditary n) where
+  size h = hereditaryToNat {n} h
+
+biggerExponentBigger : (n : Nat) -> (e1, e2 : Nat) -> (c : Fin (S n)) ->
+                       LT e1 e2 ->
+                       LT ((S (finToNat c)) * power (S (S n)) e1) (power (S (S n)) e2)
+biggerExponentBigger n e1 e2 c lt with (view lt)
+  biggerExponentBigger n 0 (S e2) c (LTESucc LTEZero) | LTZero =
+    rewrite multOneRightNeutral (finToNat c) in
+            transitive (LTESucc (elemSmallerThanBound c))
+                       (plusLteMonotone (powerPositiveBasePositive (S n) e2)
+                       (plusLteMonotone (powerPositiveBasePositive (S n) e2)
+                       (rewrite sym $ multOneRightNeutral n in
+                                (multLteMonotoneRight n 1 (power (S (S n)) e2) (powerPositiveBasePositive (S n) e2)))))
+  biggerExponentBigger n (S e1) (S e2) c (LTESucc lt) | (LTSucc lt) = CalcWith {leq = LTE} $
+    |~ S (S (finToNat c) * power (S (S n)) (S e1))
+    ~~ S (S (finToNat c) * (S (S n) * power (S (S n)) e1)) ...(Refl)
+    ~~ S (S (finToNat c) * S (S n) * power (S (S n)) e1) ...(cong S $ multAssociative (S (finToNat c)) (S (S n)) (power (S (S n)) e1))
+    ~~ S (S (S n) * S (finToNat c) * power (S (S n)) e1) ...(cong (S . (* power (S (S n)) e1)) $ multCommutative (S (finToNat c)) (S (S n)))
+    ~~ S (S (S n) * (S (finToNat c) * power (S (S n)) e1)) ...(cong S $ (sym $ multAssociative (S (S n)) (S (finToNat c)) (power (S (S n)) e1)))
+    <~ S n + S (S (S n) * (S (finToNat c) * power (S (S n)) e1)) ...(lteAddLeft (S (S (S n) * (S (finToNat c) * power (S (S n)) e1))) (S n))
+    ~~ S (S n) + S (S n) * (S (finToNat c) * power (S (S n)) e1) ...(sym $ plusSuccRightSucc (S n) (S (S n) * (S (finToNat c) * power (S (S n)) e1)))
+    ~~ S (S n) * 1 + S (S n) * (S (finToNat c) * power (S (S n)) e1) ...(cong (+ S (S n) * (S (finToNat c) * power (S (S n)) e1)) (sym $ multOneRightNeutral (S (S n))))
+    ~~ S (S n) * (1 + (S (finToNat c) * power (S (S n)) e1)) ...(sym $ multDistributesOverPlusRight (S (S n)) 1 (S (finToNat c) * power (S (S n)) e1))
+    ~~ S (S n) * (S (S (finToNat c) * power (S (S n)) e1)) ...(Refl)
+    <~ (S (S n) * power (S (S n)) e2) ...(multLteMonotoneRight (S (S n)) (S (S (finToNat c) * power (S (S n)) e1)) (power (S (S n)) e2) (biggerExponentBigger n e1 e2 c lt))
+    ~~ power (S (S n)) (S e2) ...(Refl)
+
+hltToSizeSmaller : {n : Nat} -> (h, g : Hereditary (S (S n))) -> HLT h g -> LT (size h) (size g)
+hltToSizeSmaller HZ (HA coef e rest so) HZLTHA =
+  transitive (powerPositiveBasePositive (S n) (hereditaryToNat e))
+             (rewrite sym $ plusAssociative (power (S (S n)) (hereditaryToNat e)) (mult (finToNat coef) (power (S (S n)) (hereditaryToNat e))) (hereditaryToNat rest) in
+                      lteAddRight (power (S (S n)) (hereditaryToNat e)))
+hltToSizeSmaller (HA c1 e r1 so1) (HA c2 e r2 so2) (SameOrderHLT lt) = ?hltToSizeSmaller_rhs_1
+hltToSizeSmaller (HA c1 e1 r1 so1) (HA c2 e2 r2 so2) (SmallerOrderHLT hlt) = ?hltToSizeSmaller_rhs_2
+hltToSizeSmaller (HA c e r1 so1) (HA c e r2 so2) (SmallerTailHLT hlt) =
+  rewrite plusSuccRightSucc ((S (finToNat c)) * power (S (S n)) (hereditaryToNat e)) (hereditaryToNat r1) in
+          plusLteMonotoneLeft ((S (finToNat c)) * power (S (S n)) (hereditaryToNat e))
+                              (S (hereditaryToNat r1))
+                              (hereditaryToNat r2)
+                              (hltToSizeSmaller r1 r2 hlt)
+
