@@ -288,3 +288,8 @@ hltToSizeSmaller (HA c e r1 so1) (HA c e r2 so2) (SmallerTailHLT hlt) =
                               (hereditaryToNat r2)
                               (hltToSizeSmaller r1 r2 hlt)
 
+{n : Nat} -> WellFounded (Hereditary (S (S n))) HLT where
+  wellFounded h = Access $ acc (sizeAccessible h)
+  where
+    acc : (0 sa : SizeAccessible j) -> (k : Hereditary (S (S n))) -> HLT k j -> Accessible HLT k
+    acc (Access rec) k hlt = Access $ acc (rec k (hltToSizeSmaller k j hlt))
