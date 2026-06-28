@@ -10,7 +10,7 @@ import Base
 mutual
   data Hereditary : (n: Nat) -> Type where
     HZ : Hereditary (S n)
-    HA : (coef : Fin n) -> (exp : Hereditary (S n)) -> (rest : Hereditary (S n)) -> (0 smaller : SmallerOrderH rest exp) -> Hereditary (S n)
+    HA : (coef : Fin n) -> (exp : Hereditary (S n)) -> (rest : Hereditary (S n)) -> (smaller : SmallerOrderH rest exp) -> Hereditary (S n)
 
   data SmallerOrderH : Hereditary n -> Hereditary n -> Type where
     HZSSmaller : SmallerOrderH HZ o
@@ -215,32 +215,3 @@ natToHereditary n = baseToHereditary (natToBase ord n)
 hereditaryToNat : {n : Nat} -> Hereditary n -> Nat
 hereditaryToNat HZ = Z
 hereditaryToNat (HA coef exp rest x) = (S (finToNat coef)) * power n (hereditaryToNat exp) + (hereditaryToNat rest)
-
--- multPowerPowerPlus : (base, exp, exp' : Nat) ->
---   power base (exp + exp') = (power base exp) * (power base exp')
--- multPowerPowerPlus base Z       exp' =
---     rewrite sym $ plusZeroRightNeutral (power base exp') in Refl
--- multPowerPowerPlus base (S exp) exp' =
---   rewrite multPowerPowerPlus base exp exp' in
---     rewrite sym $ multAssociative base (power base exp) (power base exp') in
---       Refl
-
---powerOneNeutral : (base : Nat) -> power base 1 = base
---powerOneNeutral base = rewrite multCommutative base 1 in multOneLeftNeutral base
---
---powerOneSuccOne : (exp : Nat) -> power 1 exp = 1
---powerOneSuccOne Z       = Refl
---powerOneSuccOne (S exp) = rewrite powerOneSuccOne exp in Refl
---
---powerPowerMultPower : (base, exp, exp' : Nat) ->
---  power (power base exp) exp' = power base (exp * exp')
---powerPowerMultPower _ exp Z = rewrite multZeroRightZero exp in Refl
---powerPowerMultPower base exp (S exp') =
---  rewrite powerPowerMultPower base exp exp' in
---  rewrite multRightSuccPlus exp exp' in
---  rewrite sym $ multPowerPowerPlus base exp (exp * exp') in
---          Refl
-
-powerPositiveBasePositive : (b, e : Nat) -> power (S b) e `GT` 0
-powerPositiveBasePositive b 0 = LTESucc LTEZero
-powerPositiveBasePositive b (S e) = transitive (powerPositiveBasePositive b e) (lteAddRight (power (S b) e))
