@@ -1,6 +1,6 @@
 package goodstein
 version = 0.0.1
 
-modules = Residual, Ordinal, Hereditary, Base
+modules = Residual, Ordinal, Hereditary, Hereditary.WellFounded, Base
 
 main = Goodstein
