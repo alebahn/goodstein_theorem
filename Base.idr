@@ -3,6 +3,7 @@ import Data.Fin.Properties
 import Data.List
 import Decidable.Equality
 import Control.WellFounded
+import Util
 import Residual
 
 %default total
@@ -183,14 +184,6 @@ plusLeftCancelLT : (left, right, right' : Nat) ->
 plusLeftCancelLT Z right right' lt = lt
 plusLeftCancelLT (S left) right right' (LTESucc lt) =
   plusLeftCancelLT left right right' lt
-
-private
-lteNotEqToLT : (left, right : Nat) -> left `LTE` right -> Not (left = right) -> left `LT` right
-lteNotEqToLT Z Z LTEZero neq = void (neq Refl)
-lteNotEqToLT Z (S right) LTEZero neq = LTESucc LTEZero
-lteNotEqToLT (S left) Z LTEZero neq impossible
-lteNotEqToLT (S left) (S right) (LTESucc lte) neq =
-  LTESucc (lteNotEqToLT left right lte (\eq => neq (cong S eq)))
 
 private
 multLteMonotoneLeft : (right, left, left' : Nat) ->
