@@ -42,16 +42,16 @@ borrowAccSmallerThanExp : {base : Nat} -> (h : Hereditary (S (S base))) -> (0 ac
                           {0 c : Fin (S base)} -> {0 r : Hereditary (S (S base))} -> {0 so : SmallerOrderH r h} ->
                           HLT (borrowAcc h acc) (HA c h r so)
 
-decrementAcc (HA FZ e HZ so) {nonzero = HZLTHA} (Access rec) = borrowAcc e (rec e (expSmaller e))
-decrementAcc (HA (FS c) e HZ so) {nonzero = HZLTHA} (Access rec) = HA (weaken c) e (borrowAcc e (rec e (expSmaller e))) (borrowAccSmallerOrder e (rec e (expSmaller e)))
 decrementAcc (HA coef e r@(HA c' e' r' so') so) {nonzero = HZLTHA} (Access rec) =
   HA coef e (decrementAcc r (rec r (restSmaller r))) (smallerTransSmallerOrder (decrementAccSmaller r (rec r (restSmaller r))) so)
+decrementAcc (HA FZ e HZ so) {nonzero = HZLTHA} (Access rec) = borrowAcc e (rec e (expSmaller e))
+decrementAcc (HA (FS c) e HZ so) {nonzero = HZLTHA} (Access rec) = HA (weaken c) e (borrowAcc e (rec e (expSmaller e))) (borrowAccSmallerOrder e (rec e (expSmaller e)))
 
 decrementAccSmaller (HA FZ e HZ so) {nonzero = HZLTHA} (Access rec) = borrowAccSmallerThanExp e (rec e (expSmaller e))
 decrementAccSmaller (HA (FS c) e HZ so) {nonzero = HZLTHA} (Access rec) =
   SameOrderHLT $ rewrite finToNatWeakenSame c in reflexive
 decrementAccSmaller (HA coef e r@(HA c' e' r' so') so) {nonzero = HZLTHA} (Access rec) =
-  ?oij --SmallerTailHLT (decrementAccSmaller r (rec r (restSmaller r)))
+  SmallerTailHLT (decrementAccSmaller r (rec r (restSmaller r)))
 
 borrowAcc HZ acc = HZ
 borrowAcc ee@(HA coef exp rest smaller) (Access rec) =

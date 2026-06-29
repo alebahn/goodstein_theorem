@@ -25,4 +25,5 @@ else
   devcontainer up --workspace-folder "${ROOT_DIR}"
 fi
 
-devcontainer exec --workspace-folder "${ROOT_DIR}" env TERM=$TERM bash
+# devcontainer exec --workspace-folder "${ROOT_DIR}" env TERM=$TERM bash
+devcontainer exec --workspace-folder "${ROOT_DIR}" env bash

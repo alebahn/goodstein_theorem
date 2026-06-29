@@ -21,6 +21,7 @@
 	"source=${localEnv:SSH_AUTH_SOCK},target=/ssh-agent.sock,type=bind"
     ],
     "remoteEnv": {
+      TERM: ${TERM:-xterm}
 	    "SSH_AUTH_SOCK": "/ssh-agent.sock"
     },
     "postCreateCommand": "cp /tmp/host-gitconfig \"$HOME/.gitconfig\" && if [ -d \"$HOME/.config/.git\" ]; then git -C \"$HOME/.config\" pull --ff-only; else rm -rf \"$HOME/.config\" && git clone https://github.com/alebahn/.config.git \"$HOME/.config\"; fi && \"$HOME/.config/INSTALL\" --overwrite-bashrc",
