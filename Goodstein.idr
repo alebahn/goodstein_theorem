@@ -1,6 +1,7 @@
 import Data.Fin
 import Control.WellFounded
 import Hereditary
+import Hereditary.WellFounded
 
 %default total
 
@@ -27,17 +28,46 @@ bumpSmaller (SmallerTailHLT hlt) = SmallerTailHLT (bumpSmaller hlt)
 bumpOrder HZSSmaller = HZSSmaller
 bumpOrder (HASmaller hlt) = HASmaller (bumpSmaller hlt)
 
-covering
+decrementAcc : {base : Nat} -> (h : Hereditary (S (S base))) -> {auto nonzero : HLT HZ h} ->
+               (0 acc : Accessible HLT h) -> Hereditary (S (S base))
+
+decrementAccSmaller : {base : Nat} -> (h : Hereditary (S (S base))) -> {auto nonzero : HLT HZ h} ->
+                      (0 acc : Accessible HLT h) -> HLT (decrementAcc {base} {nonzero} h acc) h
+
+borrowAcc : {base : Nat} -> (h : Hereditary (S (S base))) -> (0 acc : Accessible HLT h) -> Hereditary (S (S base))
+
+borrowAccSmallerOrder : {base : Nat} -> (h : Hereditary (S (S base))) -> (0 acc : Accessible HLT h) -> SmallerOrderH (borrowAcc h acc) h
+
+borrowAccSmallerThanExp : {base : Nat} -> (h : Hereditary (S (S base))) -> (0 acc : Accessible HLT h) ->
+                          {0 c : Fin (S base)} -> {0 r : Hereditary (S (S base))} -> {0 so : SmallerOrderH r h} ->
+                          HLT (borrowAcc h acc) (HA c h r so)
+
+decrementAcc (HA FZ e HZ so) {nonzero = HZLTHA} (Access rec) = borrowAcc e (rec e (expSmaller e))
+decrementAcc (HA (FS c) e HZ so) {nonzero = HZLTHA} (Access rec) = HA (weaken c) e (borrowAcc e (rec e (expSmaller e))) (borrowAccSmallerOrder e (rec e (expSmaller e)))
+decrementAcc (HA coef e r@(HA c' e' r' so') so) {nonzero = HZLTHA} (Access rec) =
+  HA coef e (decrementAcc r (rec r (restSmaller r))) (smallerTransSmallerOrder (decrementAccSmaller r (rec r (restSmaller r))) so)
+
+decrementAccSmaller (HA FZ e HZ so) {nonzero = HZLTHA} (Access rec) = borrowAccSmallerThanExp e (rec e (expSmaller e))
+decrementAccSmaller (HA (FS c) e HZ so) {nonzero = HZLTHA} (Access rec) =
+  SameOrderHLT $ rewrite finToNatWeakenSame c in reflexive
+decrementAccSmaller (HA coef e r@(HA c' e' r' so') so) {nonzero = HZLTHA} (Access rec) =
+  ?oij --SmallerTailHLT (decrementAccSmaller r (rec r (restSmaller r)))
+
+borrowAcc HZ acc = HZ
+borrowAcc ee@(HA coef exp rest smaller) (Access rec) =
+  let (eePred ** predSmaller) = (decrementAcc ee (Access rec) ** decrementAccSmaller ee (Access rec))
+  in HA last eePred (borrowAcc eePred (rec eePred predSmaller)) (borrowAccSmallerOrder eePred (rec eePred predSmaller))
+
+borrowAccSmallerOrder HZ acc = HZSSmaller
+borrowAccSmallerOrder ee@(HA coef exp rest smaller) (Access rec) =
+  HASmaller (decrementAccSmaller ee (Access rec))
+
+borrowAccSmallerThanExp HZ acc = HZLTHA
+borrowAccSmallerThanExp ee@(HA coef exp rest smaller) (Access rec) =
+  SmallerOrderHLT (decrementAccSmaller ee (Access rec))
+
 decrement : {base : Nat} -> (h : Hereditary (S (S base))) -> {auto nonzero : HLT HZ h} -> Hereditary (S (S base))
-
-covering
-borrow : {base : Nat} -> (h : Hereditary (S (S base))) -> Hereditary (S (S base))
-borrow HZ = HZ
-borrow ee@(HA coef exp rest smaller) = HA last (decrement ee) (borrow (decrement ee)) ?borrowSmaller
-
-decrement (HA FZ e HZ so) {nonzero = HZLTHA} = borrow e
-decrement (HA (FS c) e HZ so) {nonzero = HZLTHA} = HA (weaken c) e (borrow e) ?borrowSmallerer
-decrement (HA coef e rest@(HA _ _ _ _) so) {nonzero = HZLTHA} = HA coef e (decrement rest) ?decSmaller
+decrement h = decrementAcc h (wellFounded h)
 
 covering
 goodsteinSequence' : {ord : Nat} -> (start : Hereditary (S (S ord))) -> List Nat

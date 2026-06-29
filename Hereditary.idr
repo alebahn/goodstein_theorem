@@ -88,6 +88,14 @@ smallerOrderTransSmaller : {h, left, right : Hereditary n} ->
 smallerOrderTransSmaller HZSSmaller _ = HZSSmaller
 smallerOrderTransSmaller (HASmaller lta) ltb = HASmaller (transitive lta ltb)
 
+smallerTransSmallerOrder : {h1, h2, order : Hereditary n} ->
+                           HLT h1 h2 -> SmallerOrderH h2 order ->
+                           SmallerOrderH h1 order
+smallerTransSmallerOrder HZLTHA _ = HZSSmaller
+smallerTransSmallerOrder (SameOrderHLT lt) (HASmaller hlt) = HASmaller hlt
+smallerTransSmallerOrder (SmallerOrderHLT hlt1) (HASmaller hlt2) = HASmaller (transitive hlt1 hlt2)
+smallerTransSmallerOrder (SmallerTailHLT _) (HASmaller hlt) = HASmaller hlt
+
 baseSmallerHereditarySmaller : {base : Nat} ->
                                (as, bs : List (Fin (S (S base)))) -> BaseSmaller as bs ->
                                (0 aAcc : SizeAccessible as) ->
@@ -215,3 +223,12 @@ natToHereditary n = baseToHereditary (natToBase ord n)
 hereditaryToNat : {n : Nat} -> Hereditary n -> Nat
 hereditaryToNat HZ = Z
 hereditaryToNat (HA coef exp rest x) = (S (finToNat coef)) * power n (hereditaryToNat exp) + (hereditaryToNat rest)
+
+expSmaller : (h : Hereditary (S n)) -> {0 so : SmallerOrderH r h} -> HLT h (HA c h r so)
+expSmaller HZ = HZLTHA
+expSmaller (HA coef exp rest smaller) = SmallerOrderHLT (expSmaller exp)
+
+restSmaller : (h : Hereditary (S n)) -> {so : SmallerOrderH h e} -> HLT h (HA c e h so)
+restSmaller HZ = HZLTHA
+restSmaller (HA coef exp rest smaller) {so = (HASmaller hlt)} = SmallerOrderHLT hlt
+
