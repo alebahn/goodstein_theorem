@@ -53,26 +53,48 @@ Uninhabited (OLT a OZ) where
   uninhabited (SmallerTailLT x) impossible
 
 WellFounded Ordinal OLT where
-  wellFounded o = Access (acc o)
+  wellFounded = ordinalAccessible
   where
-    sameOrderTrans : {o : Ordinal} -> {c1, c2 : Nat} -> OLT o (OA (PS c1) e r1 so1) -> (LTE c1 c2) -> OLT o (OA (PS c2) e r2 so2)
-    sameOrderTrans OZLTOA _ = OZLTOA
-    sameOrderTrans (SameOrderLT lt {c1 = PS c0} {c2 = PS c1}) lte = SameOrderLT (transitive lt lte)
-    sameOrderTrans (SmallerOrderLT olt) _ = SmallerOrderLT olt
-    sameOrderTrans (SmallerTailLT olt {r1 = r0} {r2 = r1}) lte with (decEq c1 c2)
-      sameOrderTrans (SmallerTailLT olt {r1 = r0} {r2 = r1}) lte | (Yes Refl) = ?hho
-      sameOrderTrans (SmallerTailLT olt {r1 = r0} {r2 = r1}) lte | (No contra) = SameOrderLT (lteNotEqToLT c1 c2 lte contra)
+    zeroAccessible : Accessible OLT OZ
+    zeroAccessible = Access (\y, lt => absurd lt)
 
-    accAcc : (x : Ordinal) -> (0 aAcc : Accessible OLT x) -> (y : Ordinal) -> OLT y x -> Accessible OLT y
-    accAcc (OA coef e rest so) (Access rec) OZ OZLTOA = Access (\z, olt => absurd olt)
-    accAcc (OA c2 e r2 so2) (Access rec) (OA c1 e r1 so1) (SameOrderLT z) = ?accAcc_rhs_2
-    accAcc (OA c2 e2 r2 so2) (Access rec) (OA c1 e1 r1 so1) (SmallerOrderLT olta) = ?accAcc_rhs_3
-    accAcc (OA c e r2 so2) (Access rec) (OA c e r1 so1) (SmallerTailLT z) = ?accAcc_rhs_4
+    mutual
+      smallerOrderAccessible : (r : Ordinal) -> SmallerOrder r e -> (0 eAcc : Accessible OLT e) -> Accessible OLT r
+      smallerOrderAccessible OZ OZSSmaller _ = zeroAccessible
+      smallerOrderAccessible (OA (PS n) oh t sml) (OASmaller lt) (Access rec) =
+        let 0 ohAcc = rec oh lt
+            0 tAcc = smallerOrderAccessible t sml ohAcc in
+            coefAccessible oh ohAcc t sml tAcc n (wellFounded n)
 
-    acc : (x, y : Ordinal) -> OLT y x -> Accessible OLT y
-    acc (OA coef e rest so) OZ OZLTOA = Access (\z, olt => absurd olt)
-    acc (OA (PS 0) e r2 so2) (OA (PS c1) e r1 so1) (SameOrderLT lt) = absurd lt
-    acc (OA (PS (S c2)) e r2 so2) (OA (PS c1) e r1 so1) (SameOrderLT lt) = Access (\z, olt => acc (OA (PS c2) e r2 so2) z (sameOrderTrans ?oo (fromLteSucc lt)))
-    acc (OA c2 e2 r2 so2) (OA c1 e1 r1 so1) (SmallerOrderLT olta) = Access (\z, oltb => ?hol)
-    acc (OA c e r2 so2) (OA c e r1 so1) (SmallerTailLT z) = ?acc_rhs_3
+      coefAccessible : (e : Ordinal) ->
+                       (0 eAcc : Accessible OLT e) ->
+                       (r : Ordinal) ->
+                       (so : SmallerOrder r e) ->
+                       (0 rAcc : Accessible OLT r) ->
+                       (n : Nat) ->
+                       (0 nAcc : Accessible Data.Nat.LT n) ->
+                       Accessible OLT (OA (PS n) e r so)
+      coefAccessible e eAcc r so rAcc n nAcc = Access (rec eAcc rAcc nAcc)
+        where
+          rec : (0 eAcc : Accessible OLT e) ->
+                (0 rAcc : Accessible OLT r) ->
+                (0 nAcc : Accessible Data.Nat.LT n) ->
+                (y : Ordinal) ->
+                OLT y (OA (PS n) e r so) ->
+                Accessible OLT y
+          rec _ _ _ OZ OZLTOA = zeroAccessible
+          rec eAcc _ (Access nRec) (OA (PS k) _ r1 so1) (SameOrderLT lt) =
+            coefAccessible e eAcc r1 so1 (smallerOrderAccessible r1 so1 eAcc) k (nRec k lt)
+          rec (Access eRec) _ _ (OA (PS k) e1 r1 so1) (SmallerOrderLT lt) =
+            let 0 e1Acc = eRec e1 lt in
+                coefAccessible e1 e1Acc r1 so1 (smallerOrderAccessible r1 so1 e1Acc) k (wellFounded k)
+          rec eAcc (Access rRec) nAcc (OA _ _ r1 so1) (SmallerTailLT lt) =
+            let 0 r1Acc = rRec r1 lt in
+                coefAccessible e eAcc r1 so1 r1Acc n nAcc
 
+    ordinalAccessible : (o : Ordinal) -> Accessible OLT o
+    ordinalAccessible OZ = zeroAccessible
+    ordinalAccessible (OA (PS n) e r so) =
+      let 0 eAcc = ordinalAccessible e
+          0 rAcc = smallerOrderAccessible r so eAcc in
+          coefAccessible e eAcc r so rAcc n (wellFounded n)
