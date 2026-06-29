@@ -5,6 +5,7 @@ import Data.Fin
 import Data.Fin.Properties
 import Syntax.PreorderReasoning.Generic
 import Hereditary
+import Ordinal
 
 %default total
 

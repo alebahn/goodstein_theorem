@@ -4,6 +4,7 @@ import Data.Fin
 import Data.Fin.Properties
 import Control.WellFounded
 import Base
+import Ordinal
 
 %default total
 
@@ -232,3 +233,19 @@ restSmaller : (h : Hereditary (S n)) -> {so : SmallerOrderH h e} -> HLT h (HA c 
 restSmaller HZ = HZLTHA
 restSmaller (HA coef exp rest smaller) {so = (HASmaller hlt)} = SmallerOrderHLT hlt
 
+hereditaryAsOrdinal : Hereditary n -> Ordinal
+
+hSmallerAsoSmaller : SmallerOrderH h ex -> SmallerOrder (hereditaryAsOrdinal h) (hereditaryAsOrdinal ex)
+
+hltAsOlt : HLT ha hb -> OLT (hereditaryAsOrdinal ha) (hereditaryAsOrdinal hb)
+
+hereditaryAsOrdinal HZ = OZ
+hereditaryAsOrdinal (HA coef exp rest smaller) = OA (PS (finToNat coef)) (hereditaryAsOrdinal exp) (hereditaryAsOrdinal rest) (hSmallerAsoSmaller smaller)
+
+hSmallerAsoSmaller HZSSmaller = OZSSmaller
+hSmallerAsoSmaller (HASmaller hlt) = OASmaller (hltAsOlt hlt)
+
+hltAsOlt HZLTHA = OZLTOA
+hltAsOlt (SameOrderHLT lt) = SameOrderLT lt
+hltAsOlt (SmallerOrderHLT hlt) = SmallerOrderLT (hltAsOlt hlt)
+hltAsOlt (SmallerTailHLT hlt) = SmallerTailLT (hltAsOlt hlt)

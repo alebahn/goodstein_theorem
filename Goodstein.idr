@@ -2,6 +2,7 @@ import Data.Fin
 import Control.WellFounded
 import Hereditary
 import Hereditary.WellFounded
+import Ordinal
 
 %default total
 
@@ -27,6 +28,9 @@ bumpSmaller (SmallerTailHLT hlt) = SmallerTailHLT (bumpSmaller hlt)
 
 bumpOrder HZSSmaller = HZSSmaller
 bumpOrder (HASmaller hlt) = HASmaller (bumpSmaller hlt)
+
+bumpStillNonZero : (h : Hereditary (S (S n))) -> {auto nonZero : HLT HZ h} -> HLT HZ (bump h)
+bumpStillNonZero (HA coef e rest so) {nonZero = HZLTHA} = HZLTHA
 
 decrementAcc : {base : Nat} -> (h : Hereditary (S (S base))) -> {auto nonzero : HLT HZ h} ->
                (0 acc : Accessible HLT h) -> Hereditary (S (S base))
@@ -69,11 +73,15 @@ borrowAccSmallerThanExp ee@(HA coef exp rest smaller) (Access rec) =
 decrement : {base : Nat} -> (h : Hereditary (S (S base))) -> {auto nonzero : HLT HZ h} -> Hereditary (S (S base))
 decrement h = decrementAcc h (wellFounded h)
 
-covering
-goodsteinSequence' : {ord : Nat} -> (start : Hereditary (S (S ord))) -> List Nat
-goodsteinSequence' HZ = [0]
-goodsteinSequence' h = hereditaryToNat h :: goodsteinSequence' (decrement (bump h) {nonzero = ?nonzerobump})
+stepSmaller : {ord : Nat} -> (h : Hereditary (S (S ord))) -> {auto nonzero : HLT HZ h} -> OLT (hereditaryAsOrdinal (decrement (bump h) {nonzero = bumpStillNonZero h})) (hereditaryAsOrdinal h)
 
-covering
+goodsteinSequenceAcc : {ord : Nat} -> (start : Hereditary (S (S ord))) -> (0 acc : Accessible OLT (hereditaryAsOrdinal start)) -> List Nat
+goodsteinSequenceAcc HZ _ = [0]
+goodsteinSequenceAcc h@(HA coef exp rest smaller) (Access rec) =
+  hereditaryToNat h :: goodsteinSequenceAcc (decrement (bump h)) (rec _ (stepSmaller h))
+
+goodsteinSequence' : {ord : Nat} -> (start : Hereditary (S (S ord))) -> List Nat
+goodsteinSequence' start = goodsteinSequenceAcc start (wellFounded (hereditaryAsOrdinal start))
+
 goodsteinSequence : (start : Nat) -> List Nat
 goodsteinSequence start = goodsteinSequence' (natToHereditary {ord = 0} start)
