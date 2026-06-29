@@ -26,6 +26,31 @@ natToOrd : Nat -> Ordinal
 natToOrd 0 = OZ
 natToOrd (S k) = OA (PS k) OZ OZ OZSSmaller
 
+private
+[ordinalAntireflOLT] Uninhabited (OLT x x) where
+  uninhabited (SameOrderLT lt) = uninhabited @{antireflLT} lt
+  uninhabited (SmallerOrderLT lt) = uninhabited lt
+  uninhabited (SmallerTailLT lt) = uninhabited lt
+
+sameArgIsSameOLT : (x, y : OLT a b) -> x === y
+sameArgIsSameOLT OZLTOA OZLTOA = Refl
+sameArgIsSameOLT (SameOrderLT x) (SameOrderLT y) = cong SameOrderLT (sameArgIsSameLT x y)
+sameArgIsSameOLT (SameOrderLT x) (SmallerOrderLT y) = absurd @{ordinalAntireflOLT} y
+sameArgIsSameOLT (SameOrderLT x) (SmallerTailLT y) = absurd @{antireflLT} x
+sameArgIsSameOLT (SmallerOrderLT x) (SameOrderLT y) = absurd @{ordinalAntireflOLT} x
+sameArgIsSameOLT (SmallerOrderLT x) (SmallerOrderLT y) = cong SmallerOrderLT (sameArgIsSameOLT x y)
+sameArgIsSameOLT (SmallerOrderLT x) (SmallerTailLT y) = absurd @{ordinalAntireflOLT} x
+sameArgIsSameOLT (SmallerTailLT x) (SameOrderLT y) = absurd @{antireflLT} y
+sameArgIsSameOLT (SmallerTailLT x) (SmallerOrderLT y) = absurd @{ordinalAntireflOLT} y
+sameArgIsSameOLT (SmallerTailLT x) (SmallerTailLT y) = cong SmallerTailLT (sameArgIsSameOLT x y)
+
+sameArgIsSameSmallerOrder : (x, y : SmallerOrder a b) -> x === y
+sameArgIsSameSmallerOrder OZSSmaller OZSSmaller = Refl
+sameArgIsSameSmallerOrder (OASmaller x) (OASmaller y) = cong OASmaller (sameArgIsSameOLT x y)
+
+sameArgIsSameOA : (c : Pos) -> e1 === e2 -> r1 === r2 -> OA c e1 r1 so1 === OA c e2 r2 so2
+sameArgIsSameOA c Refl Refl = rewrite sameArgIsSameSmallerOrder so1 so2 in Refl
+
 Transitive Ordinal OLT where
   transitive OZLTOA (SameOrderLT _) = OZLTOA
   transitive OZLTOA (SmallerOrderLT _) = OZLTOA

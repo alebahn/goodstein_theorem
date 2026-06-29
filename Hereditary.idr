@@ -5,6 +5,7 @@ import Data.Fin.Properties
 import Control.WellFounded
 import Base
 import Ordinal
+import Util
 
 %default total
 
@@ -23,10 +24,6 @@ mutual
     SmallerOrderHLT : (hlt : HLT e1 e2) -> HLT (HA c1 e1 r1 so1) (HA c2 e2 r2 so2)
     SmallerTailHLT : (hlt : HLT r1 r2) -> HLT (HA c e r1 so1) (HA c e r2 so2)
 
-private
-[antireflLT] Uninhabited (Data.Nat.LT x x) where
-  uninhabited (LTESucc x) = uninhabited x
-
 Uninhabited (HLT x x) where
   uninhabited (SameOrderHLT y) = uninhabited @{antireflLT} y
   uninhabited (SmallerOrderHLT y) = uninhabited y
@@ -37,11 +34,6 @@ nothingHLTHZ HZLTHA impossible
 nothingHLTHZ (SameOrderHLT lt) impossible
 nothingHLTHZ (SmallerOrderHLT hlt) impossible
 nothingHLTHZ (SmallerTailHLT hlt) impossible
-
-private
-sameArgIsSameLT : (x, y : Data.Nat.LTE a b) -> x === y
-sameArgIsSameLT LTEZero LTEZero = Refl
-sameArgIsSameLT (LTESucc x) (LTESucc y) = cong LTESucc (sameArgIsSameLT x y)
 
 sameArgIsSameHLT : (x, y : HLT a b) -> x === y
 sameArgIsSameHLT HZLTHA HZLTHA = Refl

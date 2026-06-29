@@ -29,6 +29,12 @@ bumpSmaller (SmallerTailHLT hlt) = SmallerTailHLT (bumpSmaller hlt)
 bumpOrder HZSSmaller = HZSSmaller
 bumpOrder (HASmaller hlt) = HASmaller (bumpSmaller hlt)
 
+bumpAsOrdinalSame : (h : Hereditary n) -> hereditaryAsOrdinal (bump h) === hereditaryAsOrdinal h
+bumpAsOrdinalSame HZ = Refl
+bumpAsOrdinalSame (HA coef exp rest smaller) =
+  rewrite finToNatWeakenSame coef in
+  sameArgIsSameOA (PS (finToNat coef)) (bumpAsOrdinalSame exp) (bumpAsOrdinalSame rest)
+
 bumpStillNonZero : (h : Hereditary (S (S n))) -> {auto nonZero : HLT HZ h} -> HLT HZ (bump h)
 bumpStillNonZero (HA coef e rest so) {nonZero = HZLTHA} = HZLTHA
 
