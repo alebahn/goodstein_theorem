@@ -80,6 +80,9 @@ decrement : {base : Nat} -> (h : Hereditary (S (S base))) -> {auto nonzero : HLT
 decrement h = decrementAcc h (wellFounded h)
 
 stepSmaller : {ord : Nat} -> (h : Hereditary (S (S ord))) -> {auto nonzero : HLT HZ h} -> OLT (hereditaryAsOrdinal (decrement (bump h) {nonzero = bumpStillNonZero h})) (hereditaryAsOrdinal h)
+stepSmaller h =
+  rewrite sym (bumpAsOrdinalSame h) in
+  hltAsOlt (decrementAccSmaller (bump h) {nonzero = bumpStillNonZero h} (wellFounded (bump h)))
 
 goodsteinSequenceAcc : {ord : Nat} -> (start : Hereditary (S (S ord))) -> (0 acc : Accessible OLT (hereditaryAsOrdinal start)) -> List Nat
 goodsteinSequenceAcc HZ _ = [0]
